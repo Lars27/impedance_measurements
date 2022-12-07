@@ -1,4 +1,4 @@
-# impedance_measurements
+# impedance-measurements
 
 Files to read and interpret electrical impedance measurements
 
