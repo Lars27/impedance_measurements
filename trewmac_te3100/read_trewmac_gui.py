@@ -1,4 +1,22 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Dec 20 22:20:43 2022
 
+@author: larsh
+
+Contol and read data from Trewmax TE300x impedance analyser
+Using serial interface libraries in 'trewmac300x_serial.py'
+
+GUI interface made in Qt Designer, ver. 5
+
+Sets up a GUI to control the system
+Communicates using an emulated  COM-port on the computer, default COM7
+Reads, plots and saves a complex impedance spectrum (f,Z).
+Results are read and saved as frequency, abs(Z) and arg(Z), where Z(f) is complex impedance
+"""
+
+
+#%% Libraries
 import sys
 from PyQt5 import QtWidgets, uic
 import numpy as np
@@ -7,13 +25,14 @@ import matplotlib.pyplot as plt
 import trewmac300x_serial as te
 
 import matplotlib
-matplotlib.use('Qt5Agg')
 
+#%% Set up GUI in from Qt5
+matplotlib.use('Qt5Agg')
 qtcreator_file  = "read_trewmac_gui.ui" # Enter file here.
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qtcreator_file)
 
-
-class MyApp(QtWidgets.QMainWindow, Ui_MainWindow):
+#%% Class and defs
+class read_analyser(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self):
         QtWidgets.QMainWindow.__init__(self)
         Ui_MainWindow.__init__(self)
@@ -115,9 +134,9 @@ class MyApp(QtWidgets.QMainWindow, Ui_MainWindow):
             
             self.ax=ax
             
-
+#%% Main function
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
-    window = MyApp()
+    window = read_analyser()
     window.show()
     sys.exit(app.exec_())
