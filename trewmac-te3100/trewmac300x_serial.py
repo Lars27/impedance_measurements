@@ -189,7 +189,7 @@ class te300x:
         self.res.dt    = dt
         return 0
     
-    def read_sweep_point_by_point( self ):
+    def read_sweep_point_by_point( self, resultgraph ):
         f   = []
         Zmag= []
         Zphi= []   
@@ -198,6 +198,7 @@ class te300x:
         header   = self.read_text()
         finished = False
         nf       = 0
+        print ('Reading data. Frequencies: ')
         while not(finished):
             ret= self.read_sweep_line()
             finished = ret[3] or (nf > self.res.np)
@@ -206,7 +207,10 @@ class te300x:
                 f.append( ret[0] )
                 Zmag.append( ret[1] )
                 Zphi.append( ret[2] )
-
+                
+                print ( f' {f[nf-1]/1e6:.2f} ')
+                resultgraph[0].set_data( f , Zmag )     
+                
         dt = time.perf_counter() - tic    
         self.res.f     = np.array(f)
         self.res.Zmag  = np.array(Zmag)
