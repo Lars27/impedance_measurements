@@ -20,15 +20,15 @@ Results are read and saved as frequency, abs(Z) and arg(Z), where Z(f) is comple
 import sys
 from PyQt5 import QtWidgets, uic
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt     # For plotting
+import matplotlib                   # For setup with Qt
 
 import trewmac300x_serial as te
 
-import matplotlib
 
-#%% Set up GUI in from Qt5
+#%% Set up GUI from Qt5
 matplotlib.use('Qt5Agg')
-qtcreator_file  = "read_trewmac_gui.ui" # Enter file here.
+qtcreator_file  = "read_trewmac_gui.ui"     # GUI-file created in Qt Designer
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qtcreator_file)
 
 #%% Class and defs
@@ -39,29 +39,25 @@ class read_analyser(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         
         # Initialise result graph
-        plt.ion()
+        #plt.ion()
         fig, axs = plt.subplots( nrows=2, ncols=1, figsize=(8, 12) )
-
-        fig.canvas.manager.window.setGeometry(800, 500, 800, 600)
-        
-        x0 = []
-        y0 = x0
+       
+        x0= y0= []
         for k in range(0,2):
             axs[k].set_xlabel('Frequency [MHz]')
             axs[k].set_xlim(0 , 20)   
             axs[k].grid( True )   
-            
-        graphs=[]
-        line, = axs[0].semilogy(x0,y0)
-        graphs.append(line)
-        line, = axs[1].plot(x0,y0)
-        graphs.append(line)
 
         axs[0].set_ylabel('|Z| [Ohm]')
-        axs[1].set_ylabel('arg(Z) [Deg]')
-        
+        axs[1].set_ylabel('arg(Z) [Deg]')       
         axs[0].set_ylim( 1e-1, 1e6 )
         axs[1].set_ylim( -90, 90 )
+
+        graphs=[]# Handle to datapoints in graphs
+        line, = axs[0].semilogy(x0,y0)
+        graphs.append(line)             
+        line, = axs[1].plot(x0,y0)      
+        graphs.append(line)
 
         fig.show()
         
@@ -83,16 +79,16 @@ class read_analyser(QtWidgets.QMainWindow, Ui_MainWindow):
         self.z0_SpinBox.valueChanged.connect(self.set_z0)
         
         self.acquire_button.clicked.connect( self.acquire_trace )
-        self.close_button.clicked.connect( self.CloseApp ) 
+        self.close_button.clicked.connect( self.close_app ) 
         
         # Open intrument
         self.analyser  = te.te300x(port='COM7')
         ver = self.analyser.read_version()
         self.update_status( f'Device connected.\nVersion {ver}\n', append=False )
         
-    def CloseApp(self):
+    def close_app(self):
         plt.close(self.fig)
-        ok = self.analyser.close()
+        self.analyser.close()
         self.close()        
         
     def update_status( self, message, append = False ):
@@ -105,8 +101,8 @@ class read_analyser(QtWidgets.QMainWindow, Ui_MainWindow):
     def set_frequency_range( self ):
         fmin = self.fmin_SpinBox.value()
         fmax = self.fmax_SpinBox.value()
-        np   = self.np_SpinBox.value()
-        frange_ok = self.analyser.set_frequencyrange( fmin*1e6, fmax*1e6, np )
+        npts = self.np_SpinBox.value()
+        self.analyser.set_frequencyrange( fmin*1e6, fmax*1e6, npts )
         message = f'frange = {fmin:.2f} ... {fmax:.2f} MHz, {np:4d} pts.\n'
         self.update_status( message, append=True )    
         
@@ -131,7 +127,7 @@ class read_analyser(QtWidgets.QMainWindow, Ui_MainWindow):
         f   = self.analyser.res.f
         Zmag= self.analyser.res.Zmag
         
-        self.update_status( f'Finished\n', append=True )
+        self.update_status( 'Finished\n', append=True )
         self.update_status( f'f[0]={f[0]/1e6:.2f} MHz, Zmag[0]={Zmag[0]:.2f} Ohm  \n', append=True )
         self.plot_graph()
         
@@ -187,15 +183,6 @@ class read_analyser(QtWidgets.QMainWindow, Ui_MainWindow):
                 mult = 1
         value = float( valuestr[0] ) * mult
         return value
-
-# =============================================================================
-#             if Zmin<Zmax:
-#                 self.axs[0].set_ylim( Zmin, Zmax )
-#                 
-#             self.fig.canvas.draw()
-#             self.fig.canvas.flush_events()
-#         
-# =============================================================================
 
 #%% Main function
 if __name__ == "__main__":
