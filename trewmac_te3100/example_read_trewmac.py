@@ -27,7 +27,7 @@ ax1.set_xlabel( 'Frequency [MHz]' )
 ax1.set_ylabel( 'Impedance magnitude [Ohm]')
 ax1.grid(True)
 plt.show()
-fig.canvas.draw()
+#fig.canvas.draw()
 
 # =============================================================================
 # phaseplot= ax2.plot( [0], [0] )
@@ -46,7 +46,7 @@ frange_ok = analyser.set_frequencyrange( fmin, fmax, np )
 avg       = analyser.set_averaging ( avg )
 output    = analyser.set_output ( output )
 z0        = analyser.set_z0 ( z0 )
-sweep_ok  = analyser.read_sweep_point_by_point( magplot )
+sweep_ok  = analyser.read_sweep()
 
 res = analyser.res
 

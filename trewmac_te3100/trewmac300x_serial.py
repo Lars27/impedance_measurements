@@ -127,7 +127,7 @@ class te300x:
         return self.res.averaging
 
     def set_output ( self, output = 100 ):  
-        result = self.send_configure ( 'output', f'{output:d}' )      
+        result = self.send_configure ( 'output', f'{output:.0f}' )      
         value  = result.split('=')[1]
         self.res.output  = float( value.split('%')[0] )
         return self.res.output  

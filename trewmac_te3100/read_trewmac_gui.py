@@ -38,102 +38,165 @@ class read_analyser(QtWidgets.QMainWindow, Ui_MainWindow):
         Ui_MainWindow.__init__(self)
         self.setupUi(self)
         
+        # Initialise result graph
         plt.ion()
-        resultgraph, ax= plt.subplots(figsize=(10, 8))
+        fig, axs = plt.subplots( nrows=2, ncols=1, figsize=(8, 12) )
 
-        resultgraph.canvas.manager.window.setGeometry(800, 500, 800, 600)
+        fig.canvas.manager.window.setGeometry(800, 500, 800, 600)
         
-        ax.set_xlabel('x [Arb. units]')
-        ax.set_ylabel('y [Arb. units]')
-        ax.set_xlim(-20 , 20)
-        ax.set_ylim(  0, 400)
-        ax.set_title('Test plot')
-        x0 = np.linspace(0,10,100)
-        y0 = np.linspace(0,10,100)
-        graph, =ax.plot(x0,y0)
-        resultgraph.show()
-        
-        self.graph=graph
-        self.resultgraph = resultgraph               
+        x0 = []
+        y0 = x0
+        for k in range(0,2):
+            axs[k].set_xlabel('Frequency [MHz]')
+            axs[k].set_xlim(0 , 20)   
+            axs[k].grid( True )   
+            
+        graphs=[]
+        line, = axs[0].semilogy(x0,y0)
+        graphs.append(line)
+        line, = axs[1].plot(x0,y0)
+        graphs.append(line)
 
-        self.fmin_SpinBox.valueChanged.connect(self.set_frequency_range)
-        self.fmax_SpinBox.valueChanged.connect(self.set_frequency_range)
-        self.np_SpinBox.valueChanged.connect(self.set_frequency_range)
-        self.average_SpinBox.valueChanged.connect(self.set_average)
-        self.output_SpinBox.valueChanged.connect(self.set_output)
+        axs[0].set_ylabel('|Z| [Ohm]')
+        axs[1].set_ylabel('arg(Z) [Deg]')
+        
+        axs[0].set_ylim( 1e-1, 1e6 )
+        axs[1].set_ylim( -90, 90 )
+
+        fig.show()
+        
+        self.graph= graphs
+        self.axs  = axs
+        self.fig  = fig               
+
+        # Connect GUI elements
+        self.fmin_SpinBox.valueChanged.connect( self.set_frequency_range )
+        self.fmax_SpinBox.valueChanged.connect( self.set_frequency_range )
+        self.np_SpinBox.valueChanged.connect( self.set_frequency_range )
+        self.average_SpinBox.valueChanged.connect( self.set_average )
+        self.output_SpinBox.valueChanged.connect( self.set_output )
+        self.fscalemin_SpinBox.valueChanged.connect( self.set_f_scale )
+        self.fscalemax_SpinBox.valueChanged.connect( self.set_f_scale )       
+        self.Zscalemin_comboBox.activated.connect( self.set_Z_scale )
+        self.Zscalemax_comboBox.activated.connect( self.set_Z_scale )
+
         self.z0_SpinBox.valueChanged.connect(self.set_z0)
-
-        self.close_button.clicked.connect(self.CloseApp)
         
+        self.acquire_button.clicked.connect( self.acquire_trace )
+        self.close_button.clicked.connect( self.CloseApp ) 
+        
+        # Open intrument
         self.analyser  = te.te300x(port='COM7')
         ver = self.analyser.read_version()
-        message = f'Version = {ver}'
-        self.graph_data.setText(message)    
-
+        self.update_status( f'Device connected.\nVersion {ver}\n', append=False )
+        
     def CloseApp(self):
-        plt.close(self.resultgraph)
+        plt.close(self.fig)
         ok = self.analyser.close()
-        self.close()
+        self.close()        
+        
+    def update_status( self, message, append = False ):
+        if append:
+            old_message = self.status_textEdit.toPlainText()
+            message += old_message
+        self.status_textEdit.setText(message)            
         
     #%% Read and set measurement parameters
     def set_frequency_range( self ):
         fmin = self.fmin_SpinBox.value()
         fmax = self.fmax_SpinBox.value()
         np   = self.np_SpinBox.value()
-        frange_ok = self.analyser.set_frequencyrange( fmin, fmax, np )
-        message = f'fmin = {fmin:.2f} MHz \n fmax = {fmax:.2f} MHz \n np = {np:4d} '
-        self.graph_data.setText(message)    
+        frange_ok = self.analyser.set_frequencyrange( fmin*1e6, fmax*1e6, np )
+        message = f'frange = {fmin:.2f} ... {fmax:.2f} MHz, {np:4d} pts.\n'
+        self.update_status( message, append=True )    
         
     def set_output( self ):
         output = self.output_SpinBox.value()
         output = self.analyser.set_output ( output )
-        message = f'Output = {output:.0f} %'
-        self.graph_data.setText(message)    
+        self.update_status( f'Output = {output:.0f} %\n', append=True )
         
     def set_average( self ):
         average = self.average_SpinBox.value()
         average = self.analyser.set_averaging ( average )
-        message = f'average = {average:3d}'
-        self.graph_data.setText(message)        
+        self.update_status( f'average = {average:3d}\n', append=True )
         
     def set_z0( self ):
         z0 = self.z0_SpinBox.value()
         z0 = self.analyser.set_z0 ( z0 )
-        message = f'Z0 = {z0:.1f} Ohm'
-        self.graph_data.setText(message)    
-        
-    #%%     
-    def UpdateValues(self):
-        self.end.setValue(self.end_slider.value())
-        self.start.setValue(self.start_slider.value())
-        self.PlotGraph()
-            
-    def PlotGraph(self):        
-        N    = 100
-        start = (self.start.value())
-        end   = (self.end.value())
-        
-        x= np.linspace(start,end,N)
-        y= x**2
-        graph_string= f"Start ={start} \n End ={end}"
-        self.graph_data.setText(graph_string)
-        
-        self.graph.set_xdata(x)
-        self.graph.set_ydata(y)
-        self.resultgraph.canvas.draw()
-        self.resultgraph.canvas.flush_events()
+        self.update_status( f'Z0 = {z0:.1f} Ohm\n', append=True )
 
+    def acquire_trace( self ):
+        self.update_status( 'Reading data from analyser ... \n', append=True )
+        self.analyser.read_sweep()
+        f   = self.analyser.res.f
+        Zmag= self.analyser.res.Zmag
         
-    def DisplayResult(self):
-        def __init__(self):
-            resultgraph, ax= plt.subplots()
-            ax.set_xlabel('x [Arb. units]')
-            ax.set_ylabel('y [Arb. units]')
-            ax.set_title('Test plot')
-            ax.plt.show()
+        self.update_status( f'Finished\n', append=True )
+        self.update_status( f'f[0]={f[0]/1e6:.2f} MHz, Zmag[0]={Zmag[0]:.2f} Ohm  \n', append=True )
+        self.plot_graph()
+        
+    #%% Display results          
+    def plot_graph(self):    
+        self.update_status( 'Plotting graph\n', append=True )        
+        f     = self.analyser.res.f
+        Zmag  = self.analyser.res.Zmag
+        Zphase= self.analyser.res.Zphase
+        self.graph[0].set_xdata( f/1e6 )
+        self.graph[0].set_ydata( Zmag ) 
+        self.graph[1].set_xdata( f/1e6 )
+        self.graph[1].set_ydata( Zphase ) 
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+        
+
+    def set_f_scale( self ):
+        fmin = self.fscalemin_SpinBox.value()
+        fmax = self.fscalemax_SpinBox.value()
+        if fmin<fmax:
+            self.axs[0].set_xlim( fmin, fmax )
+            self.axs[1].set_xlim( fmin, fmax )
             
-            self.ax=ax
-            
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+        
+        return 0
+        
+    def set_Z_scale( self ):
+        Zstr = self.Zscalemin_comboBox.currentText()
+        Zmin = self.read_scaled_value ( Zstr )
+        Zmax = self.read_scaled_value ( self.Zscalemax_comboBox.currentText() )
+        if Zmin<Zmax:
+            self.axs[0].set_ylim( Zmin, Zmax )
+        
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+        
+        return 0
+    
+    
+    def read_scaled_value (self, valuestr ):
+        valuestr= valuestr.split(' ')
+        if len(valuestr) == 1:
+            mult = 1
+        else:
+            if valuestr[1]=='k':
+                mult = 1e3;
+            elif valuestr[1]=='M':
+                mult = 1e6
+            else:
+                mult = 1
+        value = float( valuestr[0] ) * mult
+        return value
+
+# =============================================================================
+#             if Zmin<Zmax:
+#                 self.axs[0].set_ylim( Zmin, Zmax )
+#                 
+#             self.fig.canvas.draw()
+#             self.fig.canvas.flush_events()
+#         
+# =============================================================================
+
 #%% Main function
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
