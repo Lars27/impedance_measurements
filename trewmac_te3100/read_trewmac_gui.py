@@ -28,14 +28,13 @@ import trewmac300x_serial as te
 
 #%% Set up GUI from Qt5
 matplotlib.use('Qt5Agg')
-qtcreator_file  = "read_trewmac_gui.ui"     # GUI-file created in Qt Designer
-Ui_MainWindow, QtBaseClass = uic.loadUiType(qtcreator_file)
+analyser_main_window, QtBaseClass = uic.loadUiType('read_trewmac_gui.ui')
 
 #%% Class and defs
-class read_analyser(QtWidgets.QMainWindow, Ui_MainWindow):
+class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
     def __init__(self):
         QtWidgets.QMainWindow.__init__(self)
-        Ui_MainWindow.__init__(self)
+        analyser_main_window.__init__(self)
         self.setupUi(self)
         
         # Initialise result graph
@@ -95,8 +94,24 @@ class read_analyser(QtWidgets.QMainWindow, Ui_MainWindow):
         if append:
             old_message = self.status_textEdit.toPlainText()
             message += old_message
-        self.status_textEdit.setText(message)            
-        
+        self.status_textEdit.setText(message)  
+        return message    
+            
+    def read_scaled_value (self, valuestr ): # Read value formatted as number with SI-prefix
+        valuestr= valuestr.split(' ')
+        if len(valuestr) == 1:
+            mult = 1
+        else:
+            if valuestr[1]=='k':
+                mult = 1e3;
+            elif valuestr[1]=='M':
+                mult = 1e6
+            else:
+                mult = 1
+        value = float( valuestr[0] ) * mult
+        return value
+
+    
     #%% Read and set measurement parameters
     def set_frequency_range( self ):
         fmin = self.fmin_SpinBox.value()
@@ -105,21 +120,25 @@ class read_analyser(QtWidgets.QMainWindow, Ui_MainWindow):
         self.analyser.set_frequencyrange( fmin*1e6, fmax*1e6, npts )
         message = f'frange = {fmin:.2f} ... {fmax:.2f} MHz, {np:4d} pts.\n'
         self.update_status( message, append=True )    
+        return 0
         
     def set_output( self ):
         output = self.output_SpinBox.value()
         output = self.analyser.set_output ( output )
         self.update_status( f'Output = {output:.0f} %\n', append=True )
+        return output
         
     def set_average( self ):
         average = self.average_SpinBox.value()
         average = self.analyser.set_averaging ( average )
         self.update_status( f'average = {average:3d}\n', append=True )
-        
+        return average
+    
     def set_z0( self ):
         z0 = self.z0_SpinBox.value()
         z0 = self.analyser.set_z0 ( z0 )
         self.update_status( f'Z0 = {z0:.1f} Ohm\n', append=True )
+        return z0
 
     def acquire_trace( self ):
         self.update_status( 'Reading data from analyser ... \n', append=True )
@@ -130,6 +149,9 @@ class read_analyser(QtWidgets.QMainWindow, Ui_MainWindow):
         self.update_status( 'Finished\n', append=True )
         self.update_status( f'f[0]={f[0]/1e6:.2f} MHz, Zmag[0]={Zmag[0]:.2f} Ohm  \n', append=True )
         self.plot_graph()
+        
+        return 0
+        
         
     #%% Display results          
     def plot_graph(self):    
@@ -143,18 +165,16 @@ class read_analyser(QtWidgets.QMainWindow, Ui_MainWindow):
         self.graph[1].set_ydata( Zphase ) 
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
-        
+        return 0        
 
     def set_f_scale( self ):
         fmin = self.fscalemin_SpinBox.value()
         fmax = self.fscalemax_SpinBox.value()
         if fmin<fmax:
             self.axs[0].set_xlim( fmin, fmax )
-            self.axs[1].set_xlim( fmin, fmax )
-            
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events()
-        
+            self.axs[1].set_xlim( fmin, fmax )            
+            self.fig.canvas.draw()
+            self.fig.canvas.flush_events()        
         return 0
         
     def set_Z_scale( self ):
@@ -162,27 +182,11 @@ class read_analyser(QtWidgets.QMainWindow, Ui_MainWindow):
         Zmin = self.read_scaled_value ( Zstr )
         Zmax = self.read_scaled_value ( self.Zscalemax_comboBox.currentText() )
         if Zmin<Zmax:
-            self.axs[0].set_ylim( Zmin, Zmax )
-        
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events()
-        
+            self.axs[0].set_ylim( Zmin, Zmax )        
+            self.fig.canvas.draw()
+            self.fig.canvas.flush_events()        
         return 0
-    
-    
-    def read_scaled_value (self, valuestr ):
-        valuestr= valuestr.split(' ')
-        if len(valuestr) == 1:
-            mult = 1
-        else:
-            if valuestr[1]=='k':
-                mult = 1e3;
-            elif valuestr[1]=='M':
-                mult = 1e6
-            else:
-                mult = 1
-        value = float( valuestr[0] ) * mult
-        return value
+
 
 #%% Main function
 if __name__ == "__main__":
