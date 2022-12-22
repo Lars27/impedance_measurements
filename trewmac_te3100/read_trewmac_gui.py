@@ -15,15 +15,13 @@ Reads, plots and saves a complex impedance spectrum (f,Z).
 Results are read and saved as frequency, abs(Z) and arg(Z), where Z(f) is complex impedance
 """
 
-
 #%% Libraries
 import sys
 from PyQt5 import QtWidgets, uic
 import numpy as np
 import matplotlib.pyplot as plt     # For plotting
 import matplotlib                   # For setup with Qt
-
-import trewmac300x_serial as te
+import trewmac300x_serial as te     # Serial inerface to Trewmac analysers
 
 
 #%% Set up GUI from Qt5
@@ -37,29 +35,6 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         analyser_main_window.__init__(self)
         self.setupUi(self)
         
-        # Initialise result graph
-        #plt.ion()         # Does not seem to make any difference
-        fig, axs = plt.subplots( nrows=2, ncols=1, figsize=(8, 12) )
-       
-        for k in range( 0, 2):
-            axs[k].set_xlabel('Frequency [MHz]')
-            axs[k].set_xlim(0 , 20)   
-            axs[k].grid( True )   
-
-        axs[0].set_ylabel('|Z| [Ohm]')
-        axs[1].set_ylabel('arg(Z) [Deg]')       
-        axs[0].set_ylim( 1e-1, 1e6 )
-        axs[1].set_ylim( -90, 90 )
-
-        graphs=[ axs[0].semilogy( [], [] )[0], axs[1].plot( [], [] )[0] ] 
-                            # Handle to datapoints, empty so far
-
-        fig.show()
-        
-        self.graph= graphs
-        self.axs  = axs
-        self.fig  = fig               
-
         # Connect GUI elements
         self.fmin_SpinBox.valueChanged.connect( self.set_frequency_range )
         self.fmax_SpinBox.valueChanged.connect( self.set_frequency_range )
@@ -67,21 +42,41 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         self.average_SpinBox.valueChanged.connect( self.set_average )
         self.z0_SpinBox.valueChanged.connect(self.set_z0)       
         self.output_SpinBox.valueChanged.connect( self.set_output )
-
         self.fscalemin_SpinBox.valueChanged.connect( self.set_f_scale )
         self.fscalemax_SpinBox.valueChanged.connect( self.set_f_scale )       
         self.Zscalemin_comboBox.activated.connect( self.set_Z_scale )
         self.Zscalemax_comboBox.activated.connect( self.set_Z_scale )
-
         self.connect_button.clicked.connect( self.connect_analyser )
         self.acquire_button.clicked.connect( self.acquire_trace )
         self.save_button.clicked.connect( self.save_results ) 
         self.close_button.clicked.connect( self.close_app ) 
         
-        self.analyser  = te.te300x()
+        # Initialise result graph
+        #plt.ion()         # Does not seem to make any difference
+        fig, axs = plt.subplots( nrows=2, ncols=1, figsize=(8, 12) )       
+        for k in range( 0, 2):   # Commpn for both subplots
+            axs[k].set_xlabel('Frequency [MHz]')
+            axs[k].set_xlim(0 , 20)   
+            axs[k].grid( True )   
+        axs[0].set_ylabel('|Z| [Ohm]')
+        axs[1].set_ylabel('arg(Z) [Deg]')       
+        axs[0].set_ylim( 1e-1, 1e6 )
+        axs[1].set_ylim( -90, 90 )
+        
+        # Create handle to datapoints, empty so far
+        graphs=[ axs[0].semilogy( [], [] )[0], axs[1].plot( [], [] )[0] ] 
+        
+        fig.show()
+        
+        self.graph= graphs
+        self.axs  = axs
+        self.fig  = fig               
 
-    #%% Utility functions        
-    
+        # Initialise instrument
+        self.analyser = te.te300x()
+
+        
+    #%% Utility functions            
     def connect_analyser( self ):
         com_port  = self.port_Edit.text()
         errorcode = self.analyser.connect( port = com_port, timeout = 5 )
@@ -178,8 +173,7 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         self.plot_graph()
         
         return 0
-        
-        
+                
     #%% Display results          
     def plot_graph(self):    
         self.update_status( 'Plotting graph\n', append=True )        
