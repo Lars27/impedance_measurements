@@ -52,13 +52,18 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         axs[0].set_ylim( 1e-1, 1e6 )
         axs[1].set_ylim( -90, 90 )
 
-        graphs=[]# Handle to datapoints in graphs
-        line, = axs[0].semilogy(x0,y0)
-        graphs.append(line)             
-        line, = axs[1].plot(x0,y0)      
-        graphs.append(line)
+        graphs=[ axs[0].semilogy(x0,y0)[0], axs[1].plot(x0,y0)[0] ] # Handle to datapoints 
 
         fig.show()
+
+# =============================================================================
+#         graphs=[]                         # Handle to datapoints in graphs
+#         line, = axs[0].semilogy(x0,y0)    # Unpacking by comma
+#         graphs.append(line)             
+#         line, = axs[1].plot(x0,y0)      
+#         graphs.append(line)
+# 
+# =============================================================================
         
         self.graph= graphs
         self.axs  = axs
@@ -74,16 +79,15 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         self.fscalemax_SpinBox.valueChanged.connect( self.set_f_scale )       
         self.Zscalemin_comboBox.activated.connect( self.set_Z_scale )
         self.Zscalemax_comboBox.activated.connect( self.set_Z_scale )
-
-        self.z0_SpinBox.valueChanged.connect(self.set_z0)
-        
+        self.z0_SpinBox.valueChanged.connect(self.set_z0)       
         self.acquire_button.clicked.connect( self.acquire_trace )
         self.close_button.clicked.connect( self.close_app ) 
         
-        # Open intrument
+        # Open instrument
         self.analyser  = te.te300x(port='COM7')
         ver = self.analyser.read_version()
         self.update_status( f'Device connected.\nVersion {ver}\n', append=False )
+
         
     def close_app(self):
         plt.close(self.fig)
