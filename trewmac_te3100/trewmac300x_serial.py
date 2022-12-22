@@ -40,17 +40,27 @@ class te_result:  # Initialise with impossible values. To be set at object creat
         
 #%%
 class te300x:
-    def __init__( self, port = 'COM1', timeout = 5 ):
-        self.port = serial.Serial( port, 115200, timeout = timeout )    
-        self.res  = te_result()
-        self.set_frequencyrange( fmin= 300e3, fmax= 20e6, np= 500 )
-        self.set_averaging ( avg = 16 )
-        self.set_z0 ( z0 = 50 )
-        self.set_output ( output = 100 )
-        self.set_format( dataformat = 'polZ' )
-        self.set_mode ( mode = 'T' )
-        # self.set_baudrate( baud = 115200 )
-
+    def __init__( self ):
+        return       
+        
+    def connect( self, port = 'COM1', timeout = 5 ):
+        try:
+            self.port = serial.Serial( port, 115200, timeout = timeout )    
+            print (' Successfully opened')
+            self.res  = te_result()
+            self.set_frequencyrange( fmin= 300e3, fmax= 20e6, np= 500 )
+            self.set_averaging ( avg = 16 )
+            self.set_z0 ( z0 = 50 )
+            self.set_output ( output = 100 )
+            self.set_format( dataformat = 'polZ' )
+            self.set_mode ( mode = 'T' )
+            errorcode = 0
+        except: #serial.SerialException:
+            print (' Could not open port, return -1')
+            self.port = -1            
+            errorcode = -1
+        return errorcode    
+            
     def close(self):
         self.port.close()
         return 0      

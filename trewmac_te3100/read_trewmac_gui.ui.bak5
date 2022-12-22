@@ -131,7 +131,7 @@ border-color: rgb(170, 0, 0);
      <string notr="true"/>
     </property>
     <property name="currentIndex">
-     <number>0</number>
+     <number>2</number>
     </property>
     <widget class="QWidget" name="control_tab">
      <property name="enabled">
@@ -570,6 +570,25 @@ border-color: rgb(170, 0, 0);
      <set>Qt::AlignCenter</set>
     </property>
    </widget>
+   <widget class="QCheckBox" name="connected_checkBox">
+    <property name="geometry">
+     <rect>
+      <x>160</x>
+      <y>80</y>
+      <width>31</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+    <property name="checked">
+     <bool>false</bool>
+    </property>
+    <property name="tristate">
+     <bool>false</bool>
+    </property>
+   </widget>
    <widget class="QTextEdit" name="status_textEdit">
     <property name="geometry">
      <rect>
@@ -578,31 +597,6 @@ border-color: rgb(170, 0, 0);
       <width>261</width>
       <height>51</height>
      </rect>
-    </property>
-   </widget>
-   <widget class="QLineEdit" name="portstatus_Edit">
-    <property name="geometry">
-     <rect>
-      <x>160</x>
-      <y>80</y>
-      <width>111</width>
-      <height>31</height>
-     </rect>
-    </property>
-    <property name="autoFillBackground">
-     <bool>true</bool>
-    </property>
-    <property name="styleSheet">
-     <string notr="true"/>
-    </property>
-    <property name="locale">
-     <locale language="English" country="UnitedKingdom"/>
-    </property>
-    <property name="text">
-     <string>-</string>
-    </property>
-    <property name="alignment">
-     <set>Qt::AlignCenter</set>
     </property>
    </widget>
   </widget>

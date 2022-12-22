@@ -9,8 +9,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>450</width>
-    <height>422</height>
+    <width>514</width>
+    <height>534</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -40,7 +40,7 @@
    <widget class="QPushButton" name="close_button">
     <property name="geometry">
      <rect>
-      <x>310</x>
+      <x>390</x>
       <y>190</y>
       <width>101</width>
       <height>31</height>
@@ -68,7 +68,7 @@ border-color: rgb(170, 0, 0);
    <widget class="QPushButton" name="save_button">
     <property name="geometry">
      <rect>
-      <x>310</x>
+      <x>390</x>
       <y>140</y>
       <width>101</width>
       <height>31</height>
@@ -84,7 +84,7 @@ border-color: rgb(170, 0, 0);
    <widget class="QPushButton" name="acquire_button">
     <property name="geometry">
      <rect>
-      <x>310</x>
+      <x>390</x>
       <y>90</y>
       <width>101</width>
       <height>31</height>
@@ -123,8 +123,8 @@ border-color: rgb(170, 0, 0);
      <rect>
       <x>20</x>
       <y>130</y>
-      <width>261</width>
-      <height>151</height>
+      <width>331</width>
+      <height>171</height>
      </rect>
     </property>
     <property name="styleSheet">
@@ -554,12 +554,6 @@ border-color: rgb(170, 0, 0);
       <height>31</height>
      </rect>
     </property>
-    <property name="autoFillBackground">
-     <bool>true</bool>
-    </property>
-    <property name="styleSheet">
-     <string notr="true"/>
-    </property>
     <property name="locale">
      <locale language="English" country="UnitedKingdom"/>
     </property>
@@ -570,39 +564,33 @@ border-color: rgb(170, 0, 0);
      <set>Qt::AlignCenter</set>
     </property>
    </widget>
-   <widget class="QTextEdit" name="status_textEdit">
-    <property name="geometry">
-     <rect>
-      <x>20</x>
-      <y>290</y>
-      <width>261</width>
-      <height>51</height>
-     </rect>
-    </property>
-   </widget>
-   <widget class="QLineEdit" name="portstatus_Edit">
+   <widget class="QCheckBox" name="connected_checkBox">
     <property name="geometry">
      <rect>
       <x>160</x>
       <y>80</y>
-      <width>111</width>
+      <width>81</width>
       <height>31</height>
      </rect>
     </property>
-    <property name="autoFillBackground">
-     <bool>true</bool>
-    </property>
-    <property name="styleSheet">
-     <string notr="true"/>
-    </property>
-    <property name="locale">
-     <locale language="English" country="UnitedKingdom"/>
-    </property>
     <property name="text">
-     <string>-</string>
+     <string>Connected</string>
     </property>
-    <property name="alignment">
-     <set>Qt::AlignCenter</set>
+    <property name="checked">
+     <bool>false</bool>
+    </property>
+    <property name="tristate">
+     <bool>false</bool>
+    </property>
+   </widget>
+   <widget class="QTextEdit" name="status_textEdit">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>310</y>
+      <width>291</width>
+      <height>41</height>
+     </rect>
     </property>
    </widget>
   </widget>
@@ -611,7 +599,7 @@ border-color: rgb(170, 0, 0);
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>450</width>
+     <width>514</width>
      <height>21</height>
     </rect>
    </property>

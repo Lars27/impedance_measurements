@@ -38,11 +38,10 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         self.setupUi(self)
         
         # Initialise result graph
-        #plt.ion()
+        #plt.ion()         # Does not seem to make any difference
         fig, axs = plt.subplots( nrows=2, ncols=1, figsize=(8, 12) )
        
-        x0= y0= []
-        for k in range(0,2):
+        for k in range( 0, 2):
             axs[k].set_xlabel('Frequency [MHz]')
             axs[k].set_xlim(0 , 20)   
             axs[k].grid( True )   
@@ -52,18 +51,10 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         axs[0].set_ylim( 1e-1, 1e6 )
         axs[1].set_ylim( -90, 90 )
 
-        graphs=[ axs[0].semilogy(x0,y0)[0], axs[1].plot(x0,y0)[0] ] # Handle to datapoints 
+        graphs=[ axs[0].semilogy( [], [] )[0], axs[1].plot( [], [] )[0] ] 
+                            # Handle to datapoints, empty so far
 
         fig.show()
-
-# =============================================================================
-#         graphs=[]                         # Handle to datapoints in graphs
-#         line, = axs[0].semilogy(x0,y0)    # Unpacking by comma
-#         graphs.append(line)             
-#         line, = axs[1].plot(x0,y0)      
-#         graphs.append(line)
-# 
-# =============================================================================
         
         self.graph= graphs
         self.axs  = axs
@@ -74,25 +65,54 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         self.fmax_SpinBox.valueChanged.connect( self.set_frequency_range )
         self.np_SpinBox.valueChanged.connect( self.set_frequency_range )
         self.average_SpinBox.valueChanged.connect( self.set_average )
+        self.z0_SpinBox.valueChanged.connect(self.set_z0)       
         self.output_SpinBox.valueChanged.connect( self.set_output )
+
         self.fscalemin_SpinBox.valueChanged.connect( self.set_f_scale )
         self.fscalemax_SpinBox.valueChanged.connect( self.set_f_scale )       
         self.Zscalemin_comboBox.activated.connect( self.set_Z_scale )
         self.Zscalemax_comboBox.activated.connect( self.set_Z_scale )
-        self.z0_SpinBox.valueChanged.connect(self.set_z0)       
+
+        self.connect_button.clicked.connect( self.connect_analyser )
         self.acquire_button.clicked.connect( self.acquire_trace )
+        self.save_button.clicked.connect( self.save_results ) 
         self.close_button.clicked.connect( self.close_app ) 
         
-        # Open instrument
-        self.analyser  = te.te300x(port='COM7')
-        ver = self.analyser.read_version()
-        self.update_status( f'Device connected.\nVersion {ver}\n', append=False )
+        self.analyser  = te.te300x()
+
+    #%% Utility functions        
+    
+    def connect_analyser( self ):
+        com_port  = self.port_Edit.text()
+        errorcode = self.analyser.connect( port = com_port, timeout = 5 )
+        if errorcode == -1:
+            self.status_textEdit.setText(f'Error: Could not open {com_port}\n' ) 
+            self.portstatus_Edit.setText( 'Not Connected' )
+            print(self.portstatus_Edit.textBackgroundColor())
+        else:           
+            self.set_frequency_range( self )
+            self.set_average( self ) 
+            self.set_z0( self )
+            self.set_output( self )
+            ver = self.analyser.read_version()
+            self.update_status( f'Device connected.\nVersion {ver}\n', append=False )           
+            self.portstatus_Edit.setText( 'Connected' )  
+        return errorcode 
 
         
     def close_app(self):
         plt.close(self.fig)
-        self.analyser.close()
-        self.close()        
+        try:
+            self.analyser.close()
+            errorcode = 0
+        except:
+            errorcode =-1
+        finally:
+            self.close()       
+        return 0
+        
+    def save_results( self ):
+        return 0
         
     def update_status( self, message, append = False ):
         if append:
@@ -101,15 +121,18 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         self.status_textEdit.setText(message)  
         return message    
             
-    def read_scaled_value (self, valuestr ): # Read value formatted as number with SI-prefix
+    def read_scaled_value (self, valuestr ): 
+        # Read value formatted as number with SI-prefix
         valuestr= valuestr.split(' ')
         if len(valuestr) == 1:
             mult = 1
         else:
-            if valuestr[1]=='k':
+            if   valuestr[1]== 'k':
                 mult = 1e3;
-            elif valuestr[1]=='M':
+            elif valuestr[1]== 'M':
                 mult = 1e6
+            elif valuestr[1]== 'G':
+                mult = 1e9
             else:
                 mult = 1
         value = float( valuestr[0] ) * mult
