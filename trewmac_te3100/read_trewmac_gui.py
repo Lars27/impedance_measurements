@@ -76,7 +76,7 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         self.analyser = te.te300x()
         self.main_tabWidget.setTabEnabled(0, False )
         self.main_tabWidget.setTabEnabled(1, False )
-        self.main_tabWidget.setCurrentIndex( 0 )
+        self.main_tabWidget.setCurrentIndex( 2 )
 
         
     #%% Utility functions            
@@ -86,8 +86,10 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         if errorcode == -1:
             self.status_textEdit.setText(f'Error: Could not open {com_port}\n' ) 
             self.portstatus_Edit.setText( 'Not Connected' )
+            self.portstatus_Edit.setStyleSheet("background-color : red; color : white")
         else:
             self.update_status( 'Device connected\n', append=False )           
+            self.portstatus_Edit.setStyleSheet("background-color : green; color : white")
             self.set_frequency_range()
             self.set_average( ) 
             self.set_z0( )
@@ -97,7 +99,6 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
             self.portstatus_Edit.setText( 'Connected' )  
             self.main_tabWidget.setTabEnabled(0, True )
             self.main_tabWidget.setTabEnabled(1, True )
-            self.main_tabWidget.setTabVisible(0, True )
 
         return errorcode 
         
