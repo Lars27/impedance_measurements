@@ -16,6 +16,8 @@ Created on Mon Dec 12 11:36:32 2022
 import serial    # Uses serial communication (COM-ports)
 import numpy as np
 import time
+import os
+import datetime
 
 terminator=b'\r'
 
@@ -23,7 +25,7 @@ class te_result:  # Initialise with impossible values. To be set at object creat
     def __init__( self ):
         self.fmin  = 0.0
         self.fmax  = 0.0
-        self.np    = 0
+        self.npts    = 0
         
         self.averaging =-1.0
         self.z0        =-1.0
@@ -46,9 +48,8 @@ class te300x:
     def connect( self, port = 'COM1', timeout = 5 ):
         try:
             self.port = serial.Serial( port, 115200, timeout = timeout )    
-            print (' Successfully opened')
             self.res  = te_result()
-            self.set_frequencyrange( fmin= 300e3, fmax= 20e6, np= 500 )
+            self.set_frequencyrange( fmin= 300e3, fmax= 20e6, npts= 500 )
             self.set_averaging ( avg = 16 )
             self.set_z0 ( z0 = 50 )
             self.set_output ( output = 100 )
@@ -56,7 +57,6 @@ class te300x:
             self.set_mode ( mode = 'T' )
             errorcode = 0
         except: #serial.SerialException:
-            print (' Could not open port, return -1')
             self.port = -1            
             errorcode = -1
         return errorcode    
@@ -119,11 +119,11 @@ class te300x:
         return self.read_text()
     
     # Configure device    
-    def set_frequencyrange( self, fmin= 300e3, fmax= 20e6, np= 801 ):
+    def set_frequencyrange( self, fmin= 300e3, fmax= 20e6, npts= 801 ):
         self.res.fmin = self.send_freqrange ( 'S', f'{fmin/1e6:.2f}'  )
         self.res.fmax = self.send_freqrange ( 'E', f'{fmax/1e6:.2f}'  )
-        np            = self.send_freqrange ( 'P', f'{np:d}'  ) 
-        self.res.np   = int (np )                             
+        npts          = self.send_freqrange ( 'P', f'{npts:d}'  ) 
+        self.res.npts = int (npts )                             
         return 0
     
     def set_format( self, dataformat = 'polZ' ):
@@ -211,7 +211,7 @@ class te300x:
         print ('Reading data. Frequencies: ')
         while not(finished):
             ret= self.read_sweep_line()
-            finished = ret[3] or (nf > self.res.np)
+            finished = ret[3] or (nf > self.res.npts )
             if not(finished):
                 nf = nf+1                
                 f.append( ret[0] )
@@ -228,4 +228,44 @@ class te300x:
         self.res.nf    = nf
         self.res.dt    = dt
         return 0
+    
+    def save_results( self ,resultfile ):
+        hd= "<Z_mag_phase_Python_>f4>"
+        n_hd = len(hd)
+        fmin = self.res.f[0]
+        df   = np.mean( np.diff( self.res.f ) )
+        Z    = np.stack(( self.res.Zmag, self.res.Zphase ))
+        Z    = np.require( Z.T, requirements='C' )   # Transpose and ensure 'c-contiguous' array
+        
+        with open(resultfile, 'xb') as fid:
+            fid.write( np.array(n_hd).astype('>i4'))
+            fid.write( bytes(hd, 'utf-8'))
+            fid.write( np.array(2).astype('>u4'))     # No of channels, magnitude and phase
+            fid.write( np.array(fmin).astype('>f8'))  # Start frequency
+            fid.write( np.array(df).astype('>f8'))    # Frequency step
+            fid.write( Z.astype('>f4') )              # Impedance mag and phase
+        return 0
+    
+    def find_filename( self, prefix, ext, resultdir=[] ):
+        counterfile= f'{prefix}.cnt'
+        if os.path.isfile(counterfile):
+            with open(counterfile, 'r') as fid:
+                n= int( fid.read( ) )
+        else:
+            n=0
+            
+        datecode   = datetime.date.today().strftime('%Y_%m_%d')
+        ext        = ext.split('.')[-1]
+        file_exists= True
+        while file_exists:
+            n+=1
+            resultfile = prefix + '_' + datecode + '_' + f'{n:04d}' + '.' + ext
+            file_exists= os.path.isfile(resultfile)
+        
+        with open(counterfile, 'wt') as fid:
+            fid.write( f'{n:d}' ) 
+            
+        return resultfile      
+        
+    
     

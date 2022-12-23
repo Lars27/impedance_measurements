@@ -18,11 +18,9 @@ Results are read and saved as frequency, abs(Z) and arg(Z), where Z(f) is comple
 #%% Libraries
 import sys
 from PyQt5 import QtWidgets, uic
-import numpy as np
 import matplotlib.pyplot as plt     # For plotting
 import matplotlib                   # For setup with Qt
 import trewmac300x_serial as te     # Serial inerface to Trewmac analysers
-
 
 #%% Set up GUI from Qt5
 matplotlib.use('Qt5Agg')
@@ -58,11 +56,13 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
             axs[k].set_xlabel('Frequency [MHz]')
             axs[k].set_xlim(0 , 20)   
             axs[k].grid( True )   
+            
+        axs[0].grid( visible=True, which='minor', axis='y' )
         axs[0].set_ylabel('|Z| [Ohm]')
         axs[1].set_ylabel('arg(Z) [Deg]')       
-        axs[0].set_ylim( 1e-1, 1e6 )
+        axs[0].set_ylim( 1, 1e6 )
         axs[1].set_ylim( -90, 90 )
-        
+
         # Create handle to datapoints, empty so far
         graphs=[ axs[0].semilogy( [], [] )[0], axs[1].plot( [], [] )[0] ] 
         
@@ -74,6 +74,9 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
 
         # Initialise instrument
         self.analyser = te.te300x()
+        self.main_tabWidget.setTabEnabled(0, False )
+        self.main_tabWidget.setTabEnabled(1, False )
+        self.main_tabWidget.setCurrentIndex( 0 )
 
         
     #%% Utility functions            
@@ -83,17 +86,20 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         if errorcode == -1:
             self.status_textEdit.setText(f'Error: Could not open {com_port}\n' ) 
             self.portstatus_Edit.setText( 'Not Connected' )
-            print(self.portstatus_Edit.textBackgroundColor())
-        else:           
-            self.set_frequency_range( self )
-            self.set_average( self ) 
-            self.set_z0( self )
-            self.set_output( self )
+        else:
+            self.update_status( 'Device connected\n', append=False )           
+            self.set_frequency_range()
+            self.set_average( ) 
+            self.set_z0( )
+            self.set_output( )
             ver = self.analyser.read_version()
-            self.update_status( f'Device connected.\nVersion {ver}\n', append=False )           
+            self.update_status( f'Version {ver}\n', append=True)           
             self.portstatus_Edit.setText( 'Connected' )  
-        return errorcode 
+            self.main_tabWidget.setTabEnabled(0, True )
+            self.main_tabWidget.setTabEnabled(1, True )
+            self.main_tabWidget.setTabVisible(0, True )
 
+        return errorcode 
         
     def close_app(self):
         plt.close(self.fig)
@@ -104,10 +110,12 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
             errorcode =-1
         finally:
             self.close()       
-        return 0
+        return errorcode 
         
     def save_results( self ):
-        return 0
+        resultfile = self.analyser.find_filename( 'ZTE', 'trc' )
+        self.analyser.save_results(resultfile)
+        self.resultfile_Edit.setText( resultfile ) 
         
     def update_status( self, message, append = False ):
         if append:
@@ -140,21 +148,21 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         fmax = self.fmax_SpinBox.value()
         npts = self.np_SpinBox.value()
         self.analyser.set_frequencyrange( fmin*1e6, fmax*1e6, npts )
-        message = f'frange = {fmin:.2f} ... {fmax:.2f} MHz, {np:4d} pts.\n'
+        message = f'frange = {fmin:.2f} ... {fmax:.2f} MHz, {npts:4d} pts.\n'
         self.update_status( message, append=True )    
         return 0
-        
-    def set_output( self ):
-        output = self.output_SpinBox.value()
-        output = self.analyser.set_output ( output )
-        self.update_status( f'Output = {output:.0f} %\n', append=True )
-        return output
         
     def set_average( self ):
         average = self.average_SpinBox.value()
         average = self.analyser.set_averaging ( average )
         self.update_status( f'average = {average:3d}\n', append=True )
         return average
+        
+    def set_output( self ):
+        output = self.output_SpinBox.value()
+        output = self.analyser.set_output ( output )
+        self.update_status( f'Output = {output:.0f} %\n', append=True )
+        return output
     
     def set_z0( self ):
         z0 = self.z0_SpinBox.value()
@@ -164,6 +172,8 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
 
     def acquire_trace( self ):
         self.update_status( 'Reading data from analyser ... \n', append=True )
+        self.resultfile_Edit.setText('Not saved') 
+
         self.analyser.read_sweep()
         f   = self.analyser.res.f
         Zmag= self.analyser.res.Zmag
@@ -171,7 +181,6 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         self.update_status( 'Finished\n', append=True )
         self.update_status( f'f[0]={f[0]/1e6:.2f} MHz, Zmag[0]={Zmag[0]:.2f} Ohm  \n', append=True )
         self.plot_graph()
-        
         return 0
                 
     #%% Display results          
