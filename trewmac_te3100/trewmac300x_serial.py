@@ -199,35 +199,44 @@ class te300x:
         self.res.dt    = dt
         return 0
     
-    def read_sweep_point_by_point( self, resultgraph ):
-        f   = []
-        Zmag= []
-        Zphi= []   
+    def read_sweep_point_by_point( self, resultgraph, resultfig ):
+        f = Zmag = Zphase = np.zeros( self.res.npts )
         self.port.write(b'N')
-        tic = time.perf_counter()
         header   = self.read_text()
         finished = False
         nf       = 0
         print ('Reading data. Frequencies: ')
         while not(finished):
+            n_old = len(f)               # Increase no. of points, append to old values
+            if n_old < self.res.npts:
+                f     = np.append( f,      np.zeros( self.res.npt - n_old) )
+                Zmag  = np.append( Zmag,   np.zeros( self.res.npt - n_old) )
+                Zphase= np.append( Zphase, np.zeros( self.res.npt - n_old) )
+
+            if n_old > self.res.npts:   # Reduce no. of points, use only lower part
+                f     = f[ 0:self.res.npts ]
+                Zmag  = Zmag[ 0:self.res.npts ]
+                Zphase= Zphase[ 0:self.res.npts ]
+                
             ret= self.read_sweep_line()
-            finished = ret[3] or (nf > self.res.npts )
+            finished = ret[3] or (nf >= self.res.npts )
             if not(finished):
-                nf = nf+1                
-                f.append( ret[0] )
-                Zmag.append( ret[1] )
-                Zphi.append( ret[2] )
+                f[nf]     = ret[0] 
+                Zmag[nf]  = ret[1] 
+                Zphase[nf]= ret[2] 
+                resultgraph[0].set_data( f/1e6, Zmag ) 
+                resultgraph[1].set_data( f/1e6, Zphase ) 
+                resultfig.canvas.draw()
+                resultfig.canvas.flush_events()
                 
-                print ( f' {f[nf-1]/1e6:.2f} ')
-                resultgraph[0].set_data( f , Zmag )     
-                
-        dt = time.perf_counter() - tic    
+                nf+=1
+
         self.res.f     = np.array(f)
         self.res.Zmag  = np.array(Zmag)
-        self.res.Zphase= np.array(Zphi)
+        self.res.Zphase= np.array(Zphase)
         self.res.nf    = nf
-        self.res.dt    = dt
         return 0
+    
     
     def save_results( self ,resultfile ):
         hd= "<Z_mag_phase_Python_>f4>"
@@ -235,7 +244,7 @@ class te300x:
         fmin = self.res.f[0]
         df   = np.mean( np.diff( self.res.f ) )
         Z    = np.stack(( self.res.Zmag, self.res.Zphase ))
-        Z    = np.require( Z.T, requirements='C' )   # Transpose and ensure 'c-contiguous' array
+        Z    = np.require( Z.T, requirements='C' )   # Trafnspose and ensure 'c-contiguous' array
         
         with open(resultfile, 'xb') as fid:
             fid.write( np.array(n_hd).astype('>i4'))
