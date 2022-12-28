@@ -16,11 +16,12 @@ Created on Mon Dec 12 11:36:32 2022
 import serial    # Uses serial communication (COM-ports)
 import numpy as np
 import time
-import os
-import datetime
+# import os
+# import datetime
 
 terminator=b'\r'
 
+#%% Result structure
 class te_result:  # Initialise with impossible values. To be set at object creation
     def __init__( self ):
         self.fmin  = 0.0
@@ -35,12 +36,13 @@ class te_result:  # Initialise with impossible values. To be set at object creat
         self.mode   = 'undefined'
         self.baudrate = 0.0
         
-        self.f     = np.array(0.0)
-        self.Zmag  = np.array(0.0)
-        self.Zphase= np.array(0.0)
+        self.f     = np.array(0.0)        
+        self.Z     = np.array(0.0)
+        # self.Zmag  = np.array(0.0)
+        # self.Zphase= np.array(0.0)
         
         
-#%%
+#%% Methods
 class te300x:
     def __init__( self ):
         return       
@@ -65,7 +67,7 @@ class te300x:
         self.port.close()
         return 0      
 
-    # Utility functions
+    #%% Utilities
     def read_text( self, max_length = 1000 ):
         rep = self.port.read_until( expected= terminator, size= max_length )
         return rep.removesuffix( terminator ).decode()
@@ -94,22 +96,10 @@ class te300x:
             Zmag = float( line[1] )
             Zphi = float( line[2] )
             
-        return [f, Zmag, Zphi, finished ]
+        return [f, Zmag, Zphi, finished ]                             
 
-                               
-    def send_configure ( self, parameter, value ):
-        command = f'C{parameter}'
-        fullcommand =  command.encode() + terminator + value.encode() + terminator
-        self.port.write( fullcommand )
-        return self.read_text()
 
-    def send_freqrange ( self, parameter, value ):
-        fullcommand =  parameter.encode() + value.encode() + terminator
-        self.port.write( fullcommand )
-        response = self.read_text()
-        return float( response.split('=')[1] )
-
-    # Read device information   
+    #%% Read device information   
     def read_version(self):
         self.port.write(b'V')
         return self.read_text()
@@ -118,21 +108,37 @@ class te300x:
         self.port.write(b'I')
         return self.read_text()
     
-    # Configure device    
+    #%% Configure device    
+    """
+    Command references found in Trewmac TE 30000/30001 Hardvare guide, 
+    TM1227, ver. 10.0, Oct 2013
+    """
+    def send_configure ( self, parameter, value ):    # Send instrument configuration command
+        command = f'C{parameter}'
+        fullcommand =  command.encode() + terminator + value.encode() + terminator
+        self.port.write( fullcommand )
+        return self.read_text()
+
+    def send_freqrange ( self, parameter, value ):    # Send instrument frequency range command
+        fullcommand =  parameter.encode() + value.encode() + terminator
+        self.port.write( fullcommand )
+        response = self.read_text()
+        return float( response.split('=')[1] )
+
     def set_frequencyrange( self, fmin= 300e3, fmax= 20e6, npts= 801 ):
-        self.res.fmin = self.send_freqrange ( 'S', f'{fmin/1e6:.2f}'  )
+        self.res.fmin = self.send_freqrange ( 'S', f'{fmin/1e6:.2f}'  )  
         self.res.fmax = self.send_freqrange ( 'E', f'{fmax/1e6:.2f}'  )
         npts          = self.send_freqrange ( 'P', f'{npts:d}'  ) 
         self.res.npts = int (npts )                             
         return 0
     
-    def set_format( self, dataformat = 'polZ' ):
+    def set_format( self, dataformat = 'polZ' ):                      
         result = self.send_configure ( 'format', dataformat )      
         self.res.format = result.split('=')[1] 
         return self.res.format 
     
     def set_averaging ( self, avg = 64 ):         
-        result = self.send_configure ( 'averaging', f'{avg:d}' )     
+        result = self.send_configure ( 'averaging', f'{avg:d}' )       
         self.res.averaging = int( result.split('=')[1] )
         return self.res.averaging
 
@@ -165,14 +171,15 @@ class te300x:
         self.res.baudrate  = result.split(' ')[2]
         return self.res.baudrate            
     
-    # Read results
+    #%% Read results
     def read_single( self, freq ):
-        f_command= f'F{freq/1e6:.2f}\r'.encode()
+        f_command= f'F{freq/1e6:.2f}\r'.encode()   # Command to read single frequency. Ref. Trewmac Hardvare guide, TM1227
         self.port.write( f_command )
         rep = self.read_values()
         self.res.f    = np.array( rep[0] )
-        self.res.Zmag = np.array( rep[1] )
-        self.res.Zphi = np.array( rep[2] )
+        self.res.Z    = np.stack( ( np.array(rep[0]) , np.array(rep[1]) ) ) 
+#        self.res.Zmag = np.array( rep[1] )
+#        self.res.Zphi = np.array( rep[2] )
         return rep
 
     def read_sweep( self ):
@@ -180,7 +187,7 @@ class te300x:
         Zmag= []
         Zphi= []   
         self.port.reset_input_buffer()
-        self.port.write(b'N')
+        self.port.write(b'N')           # Command to read frequency scan. Ref. Trewmac Hardvare guide, TM1227
         tic = time.perf_counter()
         val = self.read_sweep_values()
         val = val.split('\r')
@@ -192,16 +199,21 @@ class te300x:
             Zphi.append(float( line[2] ))
 
         dt = time.perf_counter() - tic 
-        self.res.f     = np.array(f)
-        self.res.Zmag  = np.array(Zmag)
-        self.res.Zphase= np.array(Zphi)
-        self.res.nf    = nf
-        self.res.dt    = dt
+        # self.res.Zmag  = np.array(Zmag)
+        # self.res.Zphase= np.array(Zphi)
+        
+        Z = np.stack(( np.array(Zmag), np.array(Zphi) ))
+        Z = np.require( Z.T, requirements='C' )   # Transpose and ensure 'c-contiguous' array
+
+        self.res.f  = np.array(f)
+        self.res.Z  = Z       
+        self.res.nf = nf
+        self.res.dt = dt
         return 0
     
-    def read_sweep_point_by_point( self, resultgraph, resultfig ):
+    def read_sweep_point_by_point( self, resultgraph = [], resultfig = [] ):
         f = Zmag = Zphase = np.zeros( self.res.npts )
-        self.port.write(b'N')
+        self.port.write(b'N')          # Command to read frequency scan. Ref. Trewmac Hardvare guide, TM1227
         header   = self.read_text()
         finished = False
         nf       = 0
@@ -224,57 +236,68 @@ class te300x:
                 f[nf]     = ret[0] 
                 Zmag[nf]  = ret[1] 
                 Zphase[nf]= ret[2] 
-                resultgraph[0].set_data( f/1e6, Zmag ) 
-                resultgraph[1].set_data( f/1e6, Zphase ) 
-                resultfig.canvas.draw()
-                resultfig.canvas.flush_events()
+                if resultgraph and resultfig:
+                    resultgraph[0].set_data( f/1e6, Zmag ) 
+                    resultgraph[1].set_data( f/1e6, Zphase ) 
+                    resultfig.canvas.draw()            # --- TRY: Probably necessary
+                    resultfig.canvas.flush_events()    # --- TRY: Probably unnecessary if called in program
                 
                 nf+=1
 
-        self.res.f     = np.array(f)
-        self.res.Zmag  = np.array(Zmag)
-        self.res.Zphase= np.array(Zphase)
-        self.res.nf    = nf
+        Z = np.stack(( np.array(Zmag), np.array(Zphase) ))
+        Z = np.require( Z.T, requirements='C' )   # Transpose and ensure 'c-contiguous' array
+
+        self.res.f  = np.array(f)
+        self.res.Z  = Z
+        
+        # self.res.Zmag  = np.array(Zmag)
+        # self.res.Zphase= np.array(Zphase)
+        self.res.nf = nf
         return 0
     
-    
-    def save_results( self ,resultfile ):
-        hd= "<Z_mag_phase_Python_>f4>"
-        n_hd = len(hd)
-        fmin = self.res.f[0]
-        df   = np.mean( np.diff( self.res.f ) )
-        Z    = np.stack(( self.res.Zmag, self.res.Zphase ))
-        Z    = np.require( Z.T, requirements='C' )   # Trafnspose and ensure 'c-contiguous' array
-        
-        with open(resultfile, 'xb') as fid:
-            fid.write( np.array(n_hd).astype('>i4'))
-            fid.write( bytes(hd, 'utf-8'))
-            fid.write( np.array(2).astype('>u4'))     # No of channels, magnitude and phase
-            fid.write( np.array(fmin).astype('>f8'))  # Start frequency
-            fid.write( np.array(df).astype('>f8'))    # Frequency step
-            fid.write( Z.astype('>f4') )              # Impedance mag and phase
-        return 0
-    
-    def find_filename( self, prefix, ext, resultdir=[] ):
-        counterfile= f'{prefix}.cnt'
-        if os.path.isfile(counterfile):
-            with open(counterfile, 'r') as fid:
-                n= int( fid.read( ) )
-        else:
-            n=0
-            
-        datecode   = datetime.date.today().strftime('%Y_%m_%d')
-        ext        = ext.split('.')[-1]
-        file_exists= True
-        while file_exists:
-            n+=1
-            resultfile = prefix + '_' + datecode + '_' + f'{n:04d}' + '.' + ext
-            file_exists= os.path.isfile(resultfile)
-        
-        with open(counterfile, 'wt') as fid:
-            fid.write( f'{n:d}' ) 
-            
-        return resultfile      
+    #%% File operations
+# =============================================================================
+#     def save_results( self ,resultfile ):
+#         hd= "<Z_mag_phase_Python_>f4>"
+#         n_hd = len(hd)
+#         fmin = self.res.f[0]
+#         df   = np.mean( np.diff( self.res.f ) )
+#         Z    = np.stack(( self.res.Zmag, self.res.Zphase ))
+#         Z    = np.require( Z.T, requirements='C' )   # Trafnspose and ensure 'c-contiguous' array
+#         
+#         with open(resultfile, 'xb') as fid:
+#             fid.write( np.array(n_hd).astype('>i4'))
+#             fid.write( bytes(hd, 'utf-8'))
+#             fid.write( np.array(2).astype('>u4'))     # No of channels, magnitude and phase
+#             fid.write( np.array(fmin).astype('>f8'))  # Start frequency
+#             fid.write( np.array(df).astype('>f8'))    # Frequency step
+#             fid.write( Z.astype('>f4') )              # Impedance mag and phase
+#         return 0
+# =============================================================================
+
+# =============================================================================
+#     
+#     def find_filename( self, prefix, ext, resultdir=[] ):
+#         counterfile= f'{prefix}.cnt'
+#         if os.path.isfile(counterfile):
+#             with open(counterfile, 'r') as fid:
+#                 n= int( fid.read( ) )
+#         else:
+#             n=0
+#             
+#         datecode   = datetime.date.today().strftime('%Y_%m_%d')
+#         ext        = ext.split('.')[-1]
+#         file_exists= True
+#         while file_exists:
+#             n+=1
+#             resultfile = prefix + '_' + datecode + '_' + f'{n:04d}' + '.' + ext
+#             file_exists= os.path.isfile(resultfile)
+#         
+#         with open(counterfile, 'wt') as fid:
+#             fid.write( f'{n:d}' ) 
+#             
+#         return resultfile      
+# =============================================================================
         
     
     

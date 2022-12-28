@@ -20,6 +20,7 @@ import sys
 from PyQt5 import QtWidgets, uic
 import matplotlib.pyplot as plt     # For plotting
 import matplotlib                   # For setup with Qt
+import us_utilities as us           # Utilities made fro USN ultrasound lab
 import trewmac300x_serial as te     # Serial inerface to Trewmac analysers
 
 #%% Set up GUI from Qt5
@@ -90,32 +91,13 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         self.main_tabWidget.setTabEnabled(0, False )
         self.main_tabWidget.setTabEnabled(1, False )
         self.main_tabWidget.setCurrentIndex( 2 )
-
         
-    #%% Utility functions            
-    def connect_analyser( self ):
-        com_port  = self.port_Edit.text()
-        errorcode = self.analyser.connect( port = com_port, timeout = 5 )
-        if errorcode == -1:
-            self.status_textEdit.setText(f'Error: Could not open {com_port}\n' ) 
-            self.portstatus_Edit.setText( 'Not Connected' )
-            self.portstatus_Edit.setStyleSheet("background-color : red; color : white")
-        else:
-            self.update_status( 'Device connected\n', append=False )           
-            self.portstatus_Edit.setStyleSheet("background-color : green; color : white")
-            self.set_frequency_range()
-            self.set_average( ) 
-            self.set_z0( )
-            self.set_output( )
-            ver = self.analyser.read_version()
-            self.update_status( f'Version {ver}\n', append=True)           
-            self.portstatus_Edit.setText( 'Connected' )  
-            self.main_tabWidget.setTabEnabled(0, True )
-            self.main_tabWidget.setTabEnabled(1, True )
-
-        return errorcode 
+        self.statusBar().showMessage('Program started')
         
+
+    #%% Program run 
     def close_app(self):
+        self.statusBar().showMessage( 'Closing' )
         plt.close(self.fig)
         try:
             self.analyser.close()
@@ -129,12 +111,15 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
     def freeze( self ): 
         self.res.freeze = self.freeze_checkBox.isChecked()  
         self.update_status( f'Freeze {self.res.freeze}' , append = True )
+        self.statusBar().showMessage( f'Display Freeze {self.res.freeze}' )
+
         return 0
         
     def save_results( self ):
-        resultfile = self.analyser.find_filename( 'ZTE', 'trc' )
-        self.analyser.save_results(resultfile)
+        resultfile = us.find_filename(prefix='ZTE', ext='trc', resultdir='results')
+        us.save_impedance_result( resultfile, self.analyser.res )
         self.resultfile_Edit.setText( resultfile ) 
+        self.statusBar().showMessage( f'Result saved to {resultfile}' )
         
     def update_status( self, message, append = False ):
         if append:
@@ -159,34 +144,62 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
                 mult = 1
         value = float( valuestr[0] ) * mult
         return value
+   
 
+    #%% Instrument interaction
+    def connect_analyser( self ):
+        com_port  = self.port_Edit.text()
+        errorcode = self.analyser.connect( port = com_port, timeout = 5 )
+        if errorcode == -1:
+            self.status_textEdit.setText(f'Error: Could not open {com_port}\n' ) 
+            self.portstatus_Edit.setText( 'Not Connected' )
+            self.portstatus_Edit.setStyleSheet("background-color : red; color : white")
+            self.statusBar().showMessage( 'Could not connect analyser' )
+        else:
+            self.update_status( 'Device connected\n', append=False )           
+            self.portstatus_Edit.setStyleSheet("background-color : green; color : white")
+            self.set_frequency_range()
+            self.set_average( ) 
+            self.set_z0( )
+            self.set_output( )
+            ver = self.analyser.read_version()
+            self.update_status( f'Version {ver}\n', append=True)           
+            self.portstatus_Edit.setText( 'Connected' )  
+            self.main_tabWidget.setTabEnabled(0, True )
+            self.main_tabWidget.setTabEnabled(1, True )
+            self.statusBar().showMessage( 'Analyser connected' )
+
+        return errorcode 
     
-    #%% Read and set measurement parameters
     def set_frequency_range( self ):
         fmin = self.fmin_SpinBox.value()
         fmax = self.fmax_SpinBox.value()
         npts = self.np_SpinBox.value()
         self.analyser.set_frequencyrange( fmin*1e6, fmax*1e6, npts )
         message = f'frange = {fmin:.2f} ... {fmax:.2f} MHz, {npts:4d} pts.\n'
-        self.update_status( message, append=True )    
+        self.update_status( message, append=True )   
+        self.statusBar().showMessage( f'Frequency range changed to {fmin:.2f} to {fmax:.2f} MHz, {npts:4d} pts' )
         return 0
         
     def set_average( self ):
         average = self.average_SpinBox.value()
         average = self.analyser.set_averaging ( average )
         self.update_status( f'average = {average:3d}\n', append=True )
+        self.statusBar().showMessage( f'Averaging changed to {average:3d}' )
         return average
         
     def set_output( self ):
         output = self.output_SpinBox.value()
         output = self.analyser.set_output ( output )
         self.update_status( f'Output = {output:.0f} %\n', append=True )
+        self.statusBar().showMessage( f'Output level changed to {output:.0f} %' )        
         return output
     
     def set_z0( self ):
         z0 = self.z0_SpinBox.value()
         z0 = self.analyser.set_z0 ( z0 )
         self.update_status( f'Z0 = {z0:.1f} Ohm\n', append=True )
+        self.statusBar().showMessage( f'Reference inpedance changed to {z0:.1f} Ohm' )        
         return z0
 
     def acquire_trace( self ):
@@ -195,11 +208,15 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         self.res.finished = False
         while not( self.res.finished):
             if not(self.res.freeze):
+                self.statusBar().showMessage( 'Reading data from analyser' )        
                 self.update_status( 'Reading data from analyser ... \n', append=True )
                 self.analyser.read_sweep_point_by_point( self.graph , self.fig )
                 self.update_status( 'Finished\n', append=True )
-               # self.update_status( f'f[0]={f[0]/1e6:.2f} MHz, Zmag[0]={Zmag[0]:.2f} Ohm  \n', append=True )                
                 
+                self.fig.canvas.draw()          # --- TRY: Probably not sufficient
+                self.fig.canvas.flush_events()  # --- TRY: Probably good
+               # self.update_status( f'f[0]={f[0]/1e6:.2f} MHz, Zmag[0]={Zmag[0]:.2f} Ohm  \n', append=True )                
+        self.statusBar().showMessage( 'Reading from analyser finished' )        
         return 0
                 
     #%% Display results          
@@ -225,7 +242,8 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
             self.axs[0].set_xlim( fmin, fmax )
             self.axs[1].set_xlim( fmin, fmax )            
             self.fig.canvas.draw()
-            self.fig.canvas.flush_events()        
+            self.fig.canvas.flush_events()  
+            self.statusBar().showMessage( 'Frequency axis changed' ) 
         return 0
         
     def set_Z_scale( self ):
@@ -236,6 +254,7 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
             self.axs[0].set_ylim( Zmin, Zmax )        
             self.fig.canvas.draw()
             self.fig.canvas.flush_events()        
+            self.statusBar().showMessage( 'Impedance axis changed' ) 
         return 0
 
 
