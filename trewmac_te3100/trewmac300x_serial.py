@@ -36,21 +36,19 @@ class te_result:  # Initialise with impossible values. To be set at object creat
         self.mode   = 'undefined'
         self.baudrate = 0.0
         
-        self.f     = np.array(0.0)        
-        self.Z     = np.array(0.0)
-        # self.Zmag  = np.array(0.0)
-        # self.Zphase= np.array(0.0)
-        
+        self.f     = np.zeros( 2 )        
+        self.Z     = np.zeros( (2,2) )       
         
 #%% Methods
 class te300x:
     def __init__( self ):
+        self.res  = te_result()
         return       
         
     def connect( self, port = 'COM1', timeout = 5 ):
         try:
             self.port = serial.Serial( port, 115200, timeout = timeout )    
-            self.res  = te_result()
+            self.port.set_buffer_size(rx_size = 100000, tx_size = 100000)
             self.set_frequencyrange( fmin= 300e3, fmax= 20e6, npts= 500 )
             self.set_averaging ( avg = 16 )
             self.set_z0 ( z0 = 50 )
@@ -99,7 +97,12 @@ class te300x:
         return [f, Zmag, Zphi, finished ]                             
 
 
-    #%% Read device information   
+    #%%
+    """
+    Command references found in Trewmac TE 30000/30001 Hardvare guide, 
+    TM1227, ver. 10.0, Oct 2013
+    """
+    # Read device information   
     def read_version(self):
         self.port.write(b'V')
         return self.read_text()
@@ -108,11 +111,6 @@ class te300x:
         self.port.write(b'I')
         return self.read_text()
     
-    #%% Configure device    
-    """
-    Command references found in Trewmac TE 30000/30001 Hardvare guide, 
-    TM1227, ver. 10.0, Oct 2013
-    """
     def send_configure ( self, parameter, value ):    # Send instrument configuration command
         command = f'C{parameter}'
         fullcommand =  command.encode() + terminator + value.encode() + terminator
@@ -132,7 +130,7 @@ class te300x:
         self.res.npts = int (npts )                             
         return 0
     
-    def set_format( self, dataformat = 'polZ' ):                      
+    def set_format( self, dataformat = 'polZ' ):   # Measurement format fixed to polar impedance
         result = self.send_configure ( 'format', dataformat )      
         self.res.format = result.split('=')[1] 
         return self.res.format 
@@ -178,8 +176,6 @@ class te300x:
         rep = self.read_values()
         self.res.f    = np.array( rep[0] )
         self.res.Z    = np.stack( ( np.array(rep[0]) , np.array(rep[1]) ) ) 
-#        self.res.Zmag = np.array( rep[1] )
-#        self.res.Zphi = np.array( rep[2] )
         return rep
 
     def read_sweep( self ):
@@ -199,9 +195,7 @@ class te300x:
             Zphi.append(float( line[2] ))
 
         dt = time.perf_counter() - tic 
-        # self.res.Zmag  = np.array(Zmag)
-        # self.res.Zphase= np.array(Zphi)
-        
+
         Z = np.stack(( np.array(Zmag), np.array(Zphi) ))
         Z = np.require( Z.T, requirements='C' )   # Transpose and ensure 'c-contiguous' array
 
@@ -211,25 +205,22 @@ class te300x:
         self.res.dt = dt
         return 0
     
-    def read_sweep_point_by_point( self, resultgraph = [], resultfig = [] ):
-        f = Zmag = Zphase = np.zeros( self.res.npts )
-        self.port.write(b'N')          # Command to read frequency scan. Ref. Trewmac Hardvare guide, TM1227
+    def read_sweep_point_by_point( self, resultgraph = [], resultfig = [] ):  
+        n_old = len(self.res.f)
+        if n_old == self.res.npts:
+            f      = self.res.f
+            Zmag   = self.res.Z[:,0]       
+            Zphase = self.res.Z[:,1]    
+        else:
+            f     = np.full( self.res.npts, np.nan )
+            Zmag  = np.full( self.res.npts, np.nan )
+            Zphase= np.full( self.res.npts, np.nan )
+        
+        self.port.write(b'N')  # Command to read frequency scan. Ref. Trewmac Hardvare guide, TM1227
         header   = self.read_text()
         finished = False
         nf       = 0
-        print ('Reading data. Frequencies: ')
-        while not(finished):
-            n_old = len(f)               # Increase no. of points, append to old values
-            if n_old < self.res.npts:
-                f     = np.append( f,      np.zeros( self.res.npt - n_old) )
-                Zmag  = np.append( Zmag,   np.zeros( self.res.npt - n_old) )
-                Zphase= np.append( Zphase, np.zeros( self.res.npt - n_old) )
-
-            if n_old > self.res.npts:   # Reduce no. of points, use only lower part
-                f     = f[ 0:self.res.npts ]
-                Zmag  = Zmag[ 0:self.res.npts ]
-                Zphase= Zphase[ 0:self.res.npts ]
-                
+        while not(finished):               
             ret= self.read_sweep_line()
             finished = ret[3] or (nf >= self.res.npts )
             if not(finished):
@@ -248,56 +239,7 @@ class te300x:
         Z = np.require( Z.T, requirements='C' )   # Transpose and ensure 'c-contiguous' array
 
         self.res.f  = np.array(f)
-        self.res.Z  = Z
-        
-        # self.res.Zmag  = np.array(Zmag)
-        # self.res.Zphase= np.array(Zphase)
+        self.res.Z  = Z       
         self.res.nf = nf
         return 0
-    
-    #%% File operations
-# =============================================================================
-#     def save_results( self ,resultfile ):
-#         hd= "<Z_mag_phase_Python_>f4>"
-#         n_hd = len(hd)
-#         fmin = self.res.f[0]
-#         df   = np.mean( np.diff( self.res.f ) )
-#         Z    = np.stack(( self.res.Zmag, self.res.Zphase ))
-#         Z    = np.require( Z.T, requirements='C' )   # Trafnspose and ensure 'c-contiguous' array
-#         
-#         with open(resultfile, 'xb') as fid:
-#             fid.write( np.array(n_hd).astype('>i4'))
-#             fid.write( bytes(hd, 'utf-8'))
-#             fid.write( np.array(2).astype('>u4'))     # No of channels, magnitude and phase
-#             fid.write( np.array(fmin).astype('>f8'))  # Start frequency
-#             fid.write( np.array(df).astype('>f8'))    # Frequency step
-#             fid.write( Z.astype('>f4') )              # Impedance mag and phase
-#         return 0
-# =============================================================================
-
-# =============================================================================
-#     
-#     def find_filename( self, prefix, ext, resultdir=[] ):
-#         counterfile= f'{prefix}.cnt'
-#         if os.path.isfile(counterfile):
-#             with open(counterfile, 'r') as fid:
-#                 n= int( fid.read( ) )
-#         else:
-#             n=0
-#             
-#         datecode   = datetime.date.today().strftime('%Y_%m_%d')
-#         ext        = ext.split('.')[-1]
-#         file_exists= True
-#         while file_exists:
-#             n+=1
-#             resultfile = prefix + '_' + datecode + '_' + f'{n:04d}' + '.' + ext
-#             file_exists= os.path.isfile(resultfile)
-#         
-#         with open(counterfile, 'wt') as fid:
-#             fid.write( f'{n:d}' ) 
-#             
-#         return resultfile      
-# =============================================================================
-        
-    
     

@@ -9,12 +9,15 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>609</width>
-    <height>399</height>
+    <width>383</width>
+    <height>422</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
+  </property>
+  <property name="locale">
+   <locale language="English" country="UnitedKingdom"/>
   </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QLabel" name="title_label">
@@ -66,7 +69,7 @@
      <rect>
       <x>20</x>
       <y>70</y>
-      <width>261</width>
+      <width>321</width>
       <height>151</height>
      </rect>
     </property>
@@ -301,16 +304,6 @@
        </rect>
       </property>
       <layout class="QGridLayout" name="gridLayout_3">
-       <item row="0" column="0">
-        <widget class="QPushButton" name="connect_button">
-         <property name="locale">
-          <locale language="English" country="UnitedKingdom"/>
-         </property>
-         <property name="text">
-          <string>Connect</string>
-         </property>
-        </widget>
-       </item>
        <item row="0" column="1">
         <widget class="QLineEdit" name="port_Edit">
          <property name="autoFillBackground">
@@ -330,29 +323,20 @@
          </property>
         </widget>
        </item>
-       <item row="1" column="0" colspan="2">
-        <widget class="QLineEdit" name="portstatus_Edit">
-         <property name="autoFillBackground">
-          <bool>true</bool>
-         </property>
-         <property name="styleSheet">
-          <string notr="true"/>
-         </property>
+       <item row="0" column="0">
+        <widget class="QPushButton" name="connect_button">
          <property name="locale">
           <locale language="English" country="UnitedKingdom"/>
          </property>
          <property name="text">
-          <string>-</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
+          <string>Connect</string>
          </property>
         </widget>
        </item>
       </layout>
      </widget>
     </widget>
-    <widget class="QWidget" name="tab">
+    <widget class="QWidget" name="scale_tab">
      <attribute name="title">
       <string>Scale</string>
      </attribute>
@@ -536,37 +520,45 @@
       </layout>
      </widget>
     </widget>
-   </widget>
-   <widget class="QTextEdit" name="status_textEdit">
-    <property name="geometry">
-     <rect>
-      <x>40</x>
-      <y>230</y>
-      <width>221</width>
-      <height>81</height>
-     </rect>
-    </property>
+    <widget class="QWidget" name="info_tab">
+     <attribute name="title">
+      <string>Status</string>
+     </attribute>
+     <widget class="QTextEdit" name="status_textEdit">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>10</y>
+        <width>291</width>
+        <height>61</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QPlainTextEdit" name="resultpath_Edit">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>78</y>
+        <width>291</width>
+        <height>41</height>
+       </rect>
+      </property>
+     </widget>
+    </widget>
    </widget>
    <widget class="QWidget" name="gridLayoutWidget_2">
     <property name="geometry">
      <rect>
-      <x>300</x>
-      <y>80</y>
-      <width>271</width>
+      <x>30</x>
+      <y>230</y>
+      <width>301</width>
       <height>111</height>
      </rect>
     </property>
-    <layout class="QGridLayout" name="gridLayout_2" rowstretch="0,0,0,0,0" columnstretch="80,160">
+    <layout class="QGridLayout" name="button_gridLayout" rowstretch="0,0,0,0,0,0" columnstretch="40,40,40">
      <property name="verticalSpacing">
       <number>2</number>
      </property>
-     <item row="0" column="1">
-      <widget class="QCheckBox" name="freeze_checkBox">
-       <property name="text">
-        <string>Freeze</string>
-       </property>
-      </widget>
-     </item>
      <item row="2" column="0">
       <widget class="QPushButton" name="save_button">
        <property name="locale">
@@ -577,26 +569,17 @@
        </property>
       </widget>
      </item>
-     <item row="2" column="1">
-      <widget class="QLineEdit" name="resultfile_Edit">
-       <property name="autoFillBackground">
-        <bool>true</bool>
-       </property>
-       <property name="styleSheet">
-        <string notr="true"/>
-       </property>
+     <item row="0" column="0">
+      <widget class="QPushButton" name="acquire_button">
        <property name="locale">
         <locale language="English" country="UnitedKingdom"/>
        </property>
        <property name="text">
-        <string>-</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignCenter</set>
+        <string>Acquire Trace</string>
        </property>
       </widget>
      </item>
-     <item row="4" column="0">
+     <item row="5" column="0">
       <widget class="QPushButton" name="close_button">
        <property name="font">
         <font>
@@ -618,20 +601,67 @@ border-color: rgb(170, 0, 0);
        </property>
       </widget>
      </item>
-     <item row="0" column="0">
-      <widget class="QPushButton" name="acquire_button">
+     <item row="1" column="0">
+      <widget class="QPushButton" name="stop_button">
+       <property name="text">
+        <string>Stop</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QLineEdit" name="portstatus_Edit">
+       <property name="autoFillBackground">
+        <bool>true</bool>
+       </property>
+       <property name="styleSheet">
+        <string notr="true"/>
+       </property>
        <property name="locale">
         <locale language="English" country="UnitedKingdom"/>
        </property>
        <property name="text">
-        <string>Acquire Trace</string>
+        <string>-</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
        </property>
       </widget>
      </item>
-     <item row="3" column="0">
-      <widget class="QPushButton" name="stop_button">
+     <item row="0" column="2">
+      <widget class="QLineEdit" name="acquisitiontatus_Edit">
+       <property name="autoFillBackground">
+        <bool>true</bool>
+       </property>
+       <property name="styleSheet">
+        <string notr="true"/>
+       </property>
+       <property name="locale">
+        <locale language="English" country="UnitedKingdom"/>
+       </property>
        <property name="text">
-        <string>Stop</string>
+        <string>-</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="1" colspan="2">
+      <widget class="QLineEdit" name="resultfile_Edit">
+       <property name="autoFillBackground">
+        <bool>true</bool>
+       </property>
+       <property name="styleSheet">
+        <string notr="true"/>
+       </property>
+       <property name="locale">
+        <locale language="English" country="UnitedKingdom"/>
+       </property>
+       <property name="text">
+        <string>-</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
        </property>
       </widget>
      </item>
@@ -643,7 +673,7 @@ border-color: rgb(170, 0, 0);
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>609</width>
+     <width>383</width>
      <height>22</height>
     </rect>
    </property>

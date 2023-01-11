@@ -43,7 +43,6 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
 
         # Program flow controls        
         self.run_control  = acquisition_control()
-
         
         # Connect GUI elements
         self.fmin_SpinBox.valueChanged.connect( self.set_frequency_range )
@@ -59,8 +58,8 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         self.connect_button.clicked.connect( self.connect_analyser )
         self.acquire_button.clicked.connect( self.acquire_trace )
         self.save_button.clicked.connect( self.save_results ) 
+        self.stop_button.clicked.connect( self.stop_acquisition ) 
         self.close_button.clicked.connect( self.close_app ) 
-        self.freeze_checkBox.clicked.connect( self.freeze )
         
         # Initialise result graph
         #plt.ion()         # Does not seem to make any difference
@@ -87,11 +86,10 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
 
         # Initialise instrument
         self.analyser = te.te300x()
+        self.run      = acquisition_control()
 
-        self.main_tabWidget.setTabEnabled(0, False )
-        self.main_tabWidget.setTabEnabled(1, False )
-        self.main_tabWidget.setCurrentIndex( 2 )
-        
+        self.enable_controls( state=False, active='connect' )
+                
         self.statusBar().showMessage('Program started')
         
 
@@ -108,17 +106,18 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
             self.close()       
         return errorcode 
     
-    def freeze( self ): 
-        self.res.freeze = self.freeze_checkBox.isChecked()  
-        self.update_status( f'Freeze {self.res.freeze}' , append = True )
-        self.statusBar().showMessage( f'Display Freeze {self.res.freeze}' )
+    def stop_acquisition( self ): 
+        self.run.finished = True
+        self.statusBar().showMessage( f'Stopping acquisition' )
+        self.acquisitiontatus_Edit.setText( 'Finishing' )
 
         return 0
         
     def save_results( self ):
-        resultfile = us.find_filename(prefix='ZTE', ext='trc', resultdir='results')
-        us.save_impedance_result( resultfile, self.analyser.res )
+        [ resultfile, resultpath ] = us.find_filename(prefix='ZTE', ext='trc', resultdir='results')
+        us.save_impedance_result( resultpath, self.analyser.res )
         self.resultfile_Edit.setText( resultfile ) 
+        self.resultpath_Edit.setPlainText( resultpath ) 
         self.statusBar().showMessage( f'Result saved to {resultfile}' )
         
     def update_status( self, message, append = False ):
@@ -127,6 +126,19 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
             message += old_message
         self.status_textEdit.setText(message)  
         return message    
+
+    def enable_controls( self, state=False, active='connect' ):
+        self.main_tabWidget.setTabEnabled(0, state)
+        self.main_tabWidget.setTabEnabled(1, state )
+        match active.lower():
+            case 'control':
+                self.main_tabWidget.setCurrentIndex( 0 )
+            case 'connect':
+                self.main_tabWidget.setCurrentIndex( 2 )
+            case 'scale':
+                self.main_tabWidget.setCurrentIndex( 3 )
+        
+        return 0
             
     def read_scaled_value (self, valuestr ): 
         # Read value formatted as number with SI-prefix
@@ -164,9 +176,8 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
             self.set_output( )
             ver = self.analyser.read_version()
             self.update_status( f'Version {ver}\n', append=True)           
-            self.portstatus_Edit.setText( 'Connected' )  
-            self.main_tabWidget.setTabEnabled(0, True )
-            self.main_tabWidget.setTabEnabled(1, True )
+            self.portstatus_Edit.setText( 'Connected' ) 
+            self.enable_controls( state=True, active='control' )
             self.statusBar().showMessage( 'Analyser connected' )
 
         return errorcode 
@@ -203,38 +214,28 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         return z0
 
     def acquire_trace( self ):
-        self.resultfile_Edit.setText('Not saved') 
+        self.resultfile_Edit.setText('Not saved')        
+        self.run.finished = False
+        self.enable_controls( state=False, active='scale' )
         
-        self.res.finished = False
-        while not( self.res.finished):
-            if not(self.res.freeze):
-                self.statusBar().showMessage( 'Reading data from analyser' )        
-                self.update_status( 'Reading data from analyser ... \n', append=True )
-                self.analyser.read_sweep_point_by_point( self.graph , self.fig )
-                self.update_status( 'Finished\n', append=True )
+        self.acquisitiontatus_Edit.setText( 'Acquiring' )
+        self.acquisitiontatus_Edit.setStyleSheet("background-color : green; color : white")
+
+        while not( self.run.finished):
+            self.statusBar().showMessage( 'Reading data from analyser' )        
+            self.update_status( 'Reading data from analyser ... \n', append=True )
+            self.analyser.read_sweep_point_by_point( self.graph , self.fig )
+            self.update_status( 'Finished\n', append=True )
                 
-                self.fig.canvas.draw()          # --- TRY: Probably not sufficient
-                self.fig.canvas.flush_events()  # --- TRY: Probably good
-               # self.update_status( f'f[0]={f[0]/1e6:.2f} MHz, Zmag[0]={Zmag[0]:.2f} Ohm  \n', append=True )                
-        self.statusBar().showMessage( 'Reading from analyser finished' )        
+            self.fig.canvas.draw()          # --- TRY: Probably not sufficient
+            self.fig.canvas.flush_events()  # --- TRY: Probably good            
+        self.statusBar().showMessage( 'Reading from analyser finished' )     
+        self.enable_controls( state=True, active='control' )
+        self.acquisitiontatus_Edit.setText( 'Finished' )
+        self.acquisitiontatus_Edit.setStyleSheet("background-color : white; color : black")
+
         return 0
-                
-    #%% Display results          
-# =============================================================================
-#     def plot_graph(self):    
-#         self.update_status( 'Plotting graph\n', append=True )        
-#         f     = self.analyser.res.f
-#         Zmag  = self.analyser.res.Zmag
-#         Zphase= self.analyser.res.Zphase
-#         self.graph[0].set_xdata( f/1e6 )
-#         self.graph[0].set_ydata( Zmag ) 
-#         self.graph[1].set_xdata( f/1e6 )
-#         self.graph[1].set_ydata( Zphase ) 
-#         self.fig.canvas.draw()
-#         self.fig.canvas.flush_events()
-#         return 0        
-# 
-# =============================================================================
+
     def set_f_scale( self ):
         fmin = self.fscalemin_SpinBox.value()
         fmax = self.fscalemax_SpinBox.value()

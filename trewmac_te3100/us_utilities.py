@@ -40,13 +40,13 @@ def find_filename( prefix='US', ext='wfm', resultdir=[] ):
     file_exists= True
     while file_exists:                      # Find lowest numberfile still free
         n+=1
-        resultfilename= prefix + '_' + datecode + '_' + f'{n:04d}' + '.' + ext
-        resultfile    = os.path.join( os.getcwd(), resultdir, resultfilename )
-        file_exists   = os.path.isfile(resultfile)
+        resultfile  = prefix + '_' + datecode + '_' + f'{n:04d}' + '.' + ext
+        resultpath  = os.path.join( os.getcwd(), resultdir, resultfile )
+        file_exists = os.path.isfile( resultpath )
     
     with open(counterfile, 'wt') as fid:    # Write counter of last result file to counter file
         fid.write( f'{n:d}' ) 
-    return resultfile
+    return [ resultfile, resultpath ]
 
 
 def save_impedance_result( resultfile, Zresult ):   # Save result of impedance measurement
