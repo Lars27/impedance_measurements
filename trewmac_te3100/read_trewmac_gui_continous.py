@@ -28,9 +28,8 @@ matplotlib.use('Qt5Agg')
 analyser_main_window, QtBaseClass = uic.loadUiType('read_trewmac_gui.ui')
 
 
-class acquisition_control:  # Initialise with impossible values. To be set at object creation
+class acquisition_control:  
     def __init__( self ):
-        self.freeze   = False
         self.finished = False
        
         
@@ -41,8 +40,9 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         analyser_main_window.__init__(self)
         self.setupUi(self)
 
-        # Program flow controls        
-        self.run_control  = acquisition_control()
+        # Initialise instrument
+        self.runstate = acquisition_control()
+        self.analyser = te.te300x()
         
         # Connect GUI elements
         self.fmin_SpinBox.valueChanged.connect( self.set_frequency_range )
@@ -67,8 +67,7 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         for k in range( 0, 2):   # Commpn for both subplots
             axs[k].set_xlabel('Frequency [MHz]')
             axs[k].set_xlim(0 , 20)   
-            axs[k].grid( True )   
-            
+            axs[k].grid( True )              
         axs[0].grid( visible=True, which='minor', axis='y' )
         axs[0].set_ylabel('|Z| [Ohm]')
         axs[1].set_ylabel('arg(Z) [Deg]')       
@@ -76,20 +75,14 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         axs[1].set_ylim( -90, 90 )
 
         # Create handle to datapoints, empty so far
-        graphs=[ axs[0].semilogy( [], [] )[0], axs[1].plot( [], [] )[0] ] 
-        
-        fig.show()
-        
+        graphs=[ axs[0].semilogy( [], [] )[0], axs[1].plot( [], [] )[0] ]         
+        fig.show()        
         self.graph= graphs
         self.axs  = axs
-        self.fig  = fig               
+        self.fig  = fig      
 
-        # Initialise instrument
-        self.analyser = te.te300x()
-        self.run      = acquisition_control()
-
-        self.enable_controls( state=False, active='connect' )
-                
+        # Initialise GUI with messages         
+        self.enable_controls( state=False, active='connect' )                
         self.statusBar().showMessage('Program started')
         
 
@@ -107,10 +100,9 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         return errorcode 
     
     def stop_acquisition( self ): 
-        self.run.finished = True
-        self.statusBar().showMessage( f'Stopping acquisition' )
-        self.acquisitiontatus_Edit.setText( 'Finishing' )
-
+        self.runstate.finished = True
+        self.statusBar().showMessage( 'Stopping acquisition' )
+        self.update_status_box( 'acquisition', 'Finishing', 'orange', 'white' )
         return 0
         
     def save_results( self ):
@@ -119,37 +111,50 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         self.resultfile_Edit.setText( resultfile ) 
         self.resultpath_Edit.setPlainText( resultpath ) 
         self.statusBar().showMessage( f'Result saved to {resultfile}' )
-        
+        return 0
+    
     def update_status( self, message, append = False ):
         if append:
             old_message = self.status_textEdit.toPlainText()
             message += old_message
         self.status_textEdit.setText(message)  
         return message    
+    
+    def update_status_box( self, message_type, message, background_color='white', text_color='black' ):
+        match message_type.lower():
+            case 'connection':
+                box = self.portstatus_Edit
+            case 'acquisition':
+                box = self.acquisitionstatus_Edit 
+        box.setText( message )
+        box.setStyleSheet(f"background-color : {background_color}; color : {text_color}")
+        return 0
 
     def enable_controls( self, state=False, active='connect' ):
         self.main_tabWidget.setTabEnabled(0, state)
         self.main_tabWidget.setTabEnabled(1, state )
+        self.acquire_button.setEnabled( state )
         match active.lower():
             case 'control':
                 self.main_tabWidget.setCurrentIndex( 0 )
             case 'connect':
                 self.main_tabWidget.setCurrentIndex( 2 )
             case 'scale':
-                self.main_tabWidget.setCurrentIndex( 3 )
-        
+                self.main_tabWidget.setCurrentIndex( 3 )        
         return 0
             
-    def read_scaled_value (self, valuestr ): 
-        # Read value formatted as number with SI-prefix
-        valuestr= valuestr.split(' ')
+    def read_scaled_value (self, valuestr ): # Read value as number with SI-prefix
+        valuestr= valuestr.split(' ')               
         if len(valuestr) == 1:
             mult = 1
         else:
-            if   valuestr[1]== 'k':
+            if   valuestr[1]== 'm':
+                mult = 1e-3;
+            elif   valuestr[1]== 'k':
                 mult = 1e3;
             elif valuestr[1]== 'M':
                 mult = 1e6
+                print('valuestr M')
             elif valuestr[1]== 'G':
                 mult = 1e9
             else:
@@ -164,12 +169,11 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
         errorcode = self.analyser.connect( port = com_port, timeout = 5 )
         if errorcode == -1:
             self.status_textEdit.setText(f'Error: Could not open {com_port}\n' ) 
-            self.portstatus_Edit.setText( 'Not Connected' )
-            self.portstatus_Edit.setStyleSheet("background-color : red; color : white")
+            self.update_status_box( 'connection', 'Not Connected', 'red', 'white' )
             self.statusBar().showMessage( 'Could not connect analyser' )
         else:
-            self.update_status( 'Device connected\n', append=False )           
-            self.portstatus_Edit.setStyleSheet("background-color : green; color : white")
+            self.update_status( 'Device connected\n', append=False )     
+            self.update_status_box( 'connection', 'Connected', 'green', 'white' )
             self.set_frequency_range()
             self.set_average( ) 
             self.set_z0( )
@@ -179,7 +183,6 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
             self.portstatus_Edit.setText( 'Connected' ) 
             self.enable_controls( state=True, active='control' )
             self.statusBar().showMessage( 'Analyser connected' )
-
         return errorcode 
     
     def set_frequency_range( self ):
@@ -215,25 +218,19 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
 
     def acquire_trace( self ):
         self.resultfile_Edit.setText('Not saved')        
-        self.run.finished = False
-        self.enable_controls( state=False, active='scale' )
-        
-        self.acquisitiontatus_Edit.setText( 'Acquiring' )
-        self.acquisitiontatus_Edit.setStyleSheet("background-color : green; color : white")
-
-        while not( self.run.finished):
+        self.runstate.finished = False
+        self.enable_controls( state=False, active='scale' )       
+        self.update_status_box( 'acquisition', 'Acquiring', 'green', 'white'  )
+        while not( self.runstate.finished):
             self.statusBar().showMessage( 'Reading data from analyser' )        
             self.update_status( 'Reading data from analyser ... \n', append=True )
             self.analyser.read_sweep_point_by_point( self.graph , self.fig )
-            self.update_status( 'Finished\n', append=True )
-                
+            self.update_status( 'Finished\n', append=True )                
             self.fig.canvas.draw()          # --- TRY: Probably not sufficient
             self.fig.canvas.flush_events()  # --- TRY: Probably good            
         self.statusBar().showMessage( 'Reading from analyser finished' )     
         self.enable_controls( state=True, active='control' )
-        self.acquisitiontatus_Edit.setText( 'Finished' )
-        self.acquisitiontatus_Edit.setStyleSheet("background-color : white; color : black")
-
+        self.update_status_box( 'acquisition', 'Finished'  )
         return 0
 
     def set_f_scale( self ):
@@ -257,7 +254,6 @@ class read_analyser(QtWidgets.QMainWindow, analyser_main_window):
             self.fig.canvas.flush_events()        
             self.statusBar().showMessage( 'Impedance axis changed' ) 
         return 0
-
 
 #%% Main function
 if __name__ == "__main__":

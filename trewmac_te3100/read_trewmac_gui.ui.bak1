@@ -10,7 +10,7 @@
     <x>0</x>
     <y>0</y>
     <width>383</width>
-    <height>388</height>
+    <height>422</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -345,7 +345,7 @@
        <rect>
         <x>11</x>
         <y>10</y>
-        <width>243</width>
+        <width>240</width>
         <height>48</height>
        </rect>
       </property>
@@ -567,13 +567,13 @@
    <widget class="QWidget" name="gridLayoutWidget_2">
     <property name="geometry">
      <rect>
-      <x>50</x>
+      <x>30</x>
       <y>230</y>
-      <width>241</width>
+      <width>301</width>
       <height>111</height>
      </rect>
     </property>
-    <layout class="QGridLayout" name="button_gridLayout" rowstretch="0,0,0,0,0,0" columnstretch="20,20,20">
+    <layout class="QGridLayout" name="button_gridLayout" rowstretch="0,0,0,0,0,0" columnstretch="40,40,40">
      <property name="verticalSpacing">
       <number>2</number>
      </property>

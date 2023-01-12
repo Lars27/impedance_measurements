@@ -1,6 +1,6 @@
 % Example of plotting impedance from Trewmac TE3001
 
-src='test_4.csv';
+src='TE_2023_01_11_0002.trc';
 [f, Z]= read_TE3001(src); 
 Y = 1./Z;
 C = imag(Y)./(2*pi*f);

@@ -12,7 +12,9 @@ import datetime
 
 #%% Smaller utility-functions 
 
-""" Next number in an 1-2-5-10 ... sequence, e.g. for scaling axes"""
+""" 
+Next number in an 1-2-5-10 ... sequence, e.g. for scaling axes
+"""
 def scale125(x):
     val = np.array([1, 2, 5, 10])
     e   =  int(np.floor(np.log10(abs(x))))    
@@ -24,46 +26,54 @@ def scale125(x):
         
     return xn
 
+"""
+Define file naming and format for saving results as 4-byte sgl-values
+
+Format used since 1990s on a variety of platforms (LabWindows, C, LabVIEW, Matlab)
+Compact size, fast. 
+Uses 'c-order' of arrays and IEEE big-endian byte order
+File names made from date and counter
+"""
 def find_filename( prefix='US', ext='wfm', resultdir=[] ):   
     if not(os.path.isdir( resultdir ) ):     # Create result directory if it does not exist
-        os.mkdir( resultdir ) 
-        
+        os.mkdir( resultdir )         
     counterfile= os.path.join( os.getcwd(), resultdir, f'{prefix}.cnt' )
-    if os.path.isfile(counterfile):         # Read counter file, set to 0 if no file exists
+    if os.path.isfile(counterfile):         # Read existing counter file
         with open(counterfile, 'r') as fid:
-            n= int( fid.read( ) )
+            n= int( fid.read( ) )  
     else:
-        n=0
-            
+        n=0                                 # Set counter to 0 if no counter file exists            
     datecode   = datetime.date.today().strftime('%Y_%m_%d')
     ext        = ext.split('.')[-1]
     file_exists= True
-    while file_exists:                      # Find lowest numberfile still free
+    while file_exists:                      # Find lowest number of file not in use
         n+=1
         resultfile  = prefix + '_' + datecode + '_' + f'{n:04d}' + '.' + ext
         resultpath  = os.path.join( os.getcwd(), resultdir, resultfile )
-        file_exists = os.path.isfile( resultpath )
-    
+        file_exists = os.path.isfile( resultpath )    
     with open(counterfile, 'wt') as fid:    # Write counter of last result file to counter file
         fid.write( f'{n:d}' ) 
     return [ resultfile, resultpath ]
 
-
-def save_impedance_result( resultfile, Zresult ):   # Save result of impedance measurement
-    hd= "<Z_mag_phase_Python_>f4>"                  # Accepts struct with fields f, Zmag and Zphase 
-    n_hd = len(hd)
-    fmin = Zresult.f[0]
-    df   = np.mean( np.diff( Zresult.f ) )
-    Z    = Zresult.Z
-    Z    = np.require( Z.T, requirements='C' )   # Transpose and ensure 'c-contiguous' array
+"""
+Save result of impedance measurement. Accepts struct with fields f and Z=[Zmag, Zphase]
+"""
+def save_impedance_result( resultfile, Zresult ):
+    header   = "<Z_mag_phase_Python_bef4>"
+    n_hd     = len( header )       
+    meastime = datetime.datetime.today().strftime('%Y-%m-%d-%H-%M-%S')
+    n_tm     = len( meastime )
     
+    f    = np.expand_dims( Zresult.f, axis=1 )        # freq as column-vector, 2D
+    res  = np.concatenate( ( f, Zresult.Z ), axis=1 ) # Result 2D aray, [f Z]
+    res  = np.require( res, requirements='C' )        # Ensure 'c-contiguous' array for saving        
     with open(resultfile, 'xb') as fid:
-        fid.write( np.array(n_hd).astype('>i4'))
-        fid.write( bytes(hd, 'utf-8'))
-        fid.write( np.array(2).astype('>u4'))     # No of channels, magnitude and phase
-        fid.write( np.array(fmin).astype('>f8'))  # Start frequency
-        fid.write( np.array(df).astype('>f8'))    # Frequency step
-        fid.write( Z.astype('>f4') )              # Impedance mag and phase
+        fid.write( np.array(n_hd).astype('>i4') )     # Header lenght
+        fid.write( bytes(header, 'utf-8') )           # Header as string bytes
+        fid.write( np.array(n_tm).astype('>i4') )     # Time string lenght
+        fid.write( bytes(meastime, 'utf-8') )         # Measurement time as string bytes
+        fid.write( np.array( 3 ).astype('>u4') )      # No of channels: freq, Zmag and Zphase
+        fid.write( res.astype('>f4') )                # Impedance mag and phase
     return 0
 
 #%%

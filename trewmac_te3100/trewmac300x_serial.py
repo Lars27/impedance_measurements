@@ -92,10 +92,8 @@ class te300x:
             line= val.split(',')
             f    = float( line[0] )
             Zmag = float( line[1] )
-            Zphi = float( line[2] )
-            
+            Zphi = float( line[2] )            
         return [f, Zmag, Zphi, finished ]                             
-
 
     #%%
     """
@@ -177,40 +175,13 @@ class te300x:
         self.res.f    = np.array( rep[0] )
         self.res.Z    = np.stack( ( np.array(rep[0]) , np.array(rep[1]) ) ) 
         return rep
-
-    def read_sweep( self ):
-        f   = []
-        Zmag= []
-        Zphi= []   
-        self.port.reset_input_buffer()
-        self.port.write(b'N')           # Command to read frequency scan. Ref. Trewmac Hardvare guide, TM1227
-        tic = time.perf_counter()
-        val = self.read_sweep_values()
-        val = val.split('\r')
-        nf  = len(val)-3 
-        for k in range( 1, nf+1 ):
-            line=val[k].split(',')
-            f.append(float( line[0] ))
-            Zmag.append(float( line[1] ))
-            Zphi.append(float( line[2] ))
-
-        dt = time.perf_counter() - tic 
-
-        Z = np.stack(( np.array(Zmag), np.array(Zphi) ))
-        Z = np.require( Z.T, requirements='C' )   # Transpose and ensure 'c-contiguous' array
-
-        self.res.f  = np.array(f)
-        self.res.Z  = Z       
-        self.res.nf = nf
-        self.res.dt = dt
-        return 0
-    
+   
     def read_sweep_point_by_point( self, resultgraph = [], resultfig = [] ):  
         n_old = len(self.res.f)
         if n_old == self.res.npts:
-            f      = self.res.f
-            Zmag   = self.res.Z[:,0]       
-            Zphase = self.res.Z[:,1]    
+            f      = self.res.f.copy()
+            Zmag   = self.res.Z[:,0].copy()
+            Zphase = self.res.Z[:,1].copy()    
         else:
             f     = np.full( self.res.npts, np.nan )
             Zmag  = np.full( self.res.npts, np.nan )
@@ -226,20 +197,16 @@ class te300x:
             if not(finished):
                 f[nf]     = ret[0] 
                 Zmag[nf]  = ret[1] 
-                Zphase[nf]= ret[2] 
+                Zphase[nf]= np.radians(ret[2])   # Phase is saved as radians but plotted as degrees
                 if resultgraph and resultfig:
                     resultgraph[0].set_data( f/1e6, Zmag ) 
-                    resultgraph[1].set_data( f/1e6, Zphase ) 
+                    resultgraph[1].set_data( f/1e6, np.degrees( Zphase ) ) 
                     resultfig.canvas.draw()            # --- TRY: Probably necessary
-                    resultfig.canvas.flush_events()    # --- TRY: Probably unnecessary if called in program
-                
+                    resultfig.canvas.flush_events()    # --- TRY: Probably unnecessary if called in program                
                 nf+=1
-
         Z = np.stack(( np.array(Zmag), np.array(Zphase) ))
         Z = np.require( Z.T, requirements='C' )   # Transpose and ensure 'c-contiguous' array
-
-        self.res.f  = np.array(f)
-        self.res.Z  = Z       
+        self.res.f  = f.copy()
+        self.res.Z  = Z.copy()
         self.res.nf = nf
-        return 0
-    
+        return 0    
